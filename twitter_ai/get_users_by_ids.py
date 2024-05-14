@@ -1,24 +1,7 @@
 import os
 from twitter.scraper import Scraper
 from db.database import Database
-
-
-def extract_rest_ids(entries):
-    return [
-        item["item"]["itemContent"]["user_results"]["result"]["rest_id"]
-        for entry in entries
-        for item in entry["content"]["items"]
-        if not "socialContext" in item["item"]["itemContent"]
-    ]
-
-
-def extract_users(entries):
-    return [
-        item["item"]["itemContent"]["user_results"]["result"]
-        for entry in entries
-        for item in entry["content"]["items"]
-        if not "socialContext" in item["item"]["itemContent"]
-    ]
+from utils.twitter_utils import extract_rest_ids, extract_users
 
 
 def main():

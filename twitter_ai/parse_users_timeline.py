@@ -22,7 +22,7 @@ logging.basicConfig(
 )
 
 
-def get_users_to_parse(db, limit=5):
+def get_users_to_parse(db, limit=1):
     query = """
         SELECT rest_id, username FROM users
         WHERE tweets_parsed = FALSE

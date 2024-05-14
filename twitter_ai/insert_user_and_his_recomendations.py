@@ -8,36 +8,7 @@ from db.database import (
     insert_user_recommendations,
     update_user_recommendations_status,
 )
-
-
-def extract_rest_ids(data):
-    screen_names = []
-    entries = data["data"]["connect_tab_timeline"]["timeline"]["instructions"][2][
-        "entries"
-    ]
-    for entry in entries:
-        items = entry["content"]["items"]
-        for item in items:
-            screen_name = item["item"]["itemContent"]["user_results"]["result"][
-                "rest_id"
-            ]
-            if not "socialContext" in item["item"]["itemContent"]:
-                screen_names.append(screen_name)
-    return screen_names
-
-
-def extract_users(data):
-    users = []
-    entries = data["data"]["connect_tab_timeline"]["timeline"]["instructions"][2][
-        "entries"
-    ]
-    for entry in entries:
-        items = entry["content"]["items"]
-        for item in items:
-            user = item["item"]["itemContent"]["user_results"]["result"]
-            if not "socialContext" in item["item"]["itemContent"]:
-                users.append(user)
-    return users
+from utils.twitter_utils import extract_rest_ids, extract_users
 
 
 if __name__ == "__main__":
