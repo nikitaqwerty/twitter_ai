@@ -39,6 +39,7 @@ class Database:
                 "Cursor is not initialized. Check the database connection."
             )
         self.cursor.execute(query, params or ())
+        self.connection.commit()  # Ensure that changes are committed
         try:
             return self.cursor.fetchall()
         except psycopg2.ProgrammingError:
@@ -50,6 +51,7 @@ class Database:
                 "Cursor is not initialized. Check the database connection."
             )
         self.cursor.executemany(query, params_list)
+        self.connection.commit()  # Ensure that changes are committed
 
     def close(self):
         if self.cursor:

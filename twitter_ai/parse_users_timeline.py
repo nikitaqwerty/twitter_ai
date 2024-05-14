@@ -104,6 +104,7 @@ def main():
 
                 logging.info("Cycle complete. Waiting for the next cycle.")
                 time.sleep(60)
+
         except Exception as e:
             logging.error(f"{Fore.RED}An error occurred: {e}{Style.RESET_ALL}")
             logging.error(f"{Fore.RED}{traceback.format_exc()}{Style.RESET_ALL}")

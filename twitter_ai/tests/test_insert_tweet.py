@@ -1,13 +1,22 @@
 import unittest
-from unittest.mock import MagicMock
+import sys
+import os
+from unittest.mock import MagicMock, patch
+
+# Add the parent directory to the Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from utils.db_utils import insert_tweet
 
 
 class TestInsertTweet(unittest.TestCase):
-    def setUp(self):
-        self.mock_db = MagicMock()
+    @patch("utils.db_utils.Database")
+    def test_insert_tweet_basic(self, MockDatabase):
+        # Create a mock database instance
+        mock_db_instance = MockDatabase.return_value
+        mock_db_instance.run_query = MagicMock()
 
-    def test_insert_tweet_basic(self):
+        # Prepare data
         tweet_results = {
             "rest_id": "1234567890",
             "note_tweet": {
@@ -37,10 +46,20 @@ class TestInsertTweet(unittest.TestCase):
             "views": {"count": 50},
             "source": "<a href='http://twitter.com'>Twitter Web Client</a>",
         }
-        insert_tweet(self.mock_db, tweet_results)
-        self.mock_db.run_query.assert_called_once()
 
-    def test_tweet_with_no_extended_entities(self):
+        # Run the test function
+        insert_tweet(mock_db_instance, tweet_results)
+
+        # Check if run_query was called (which includes commit)
+        mock_db_instance.run_query.assert_called_once()
+
+    @patch("utils.db_utils.Database")
+    def test_tweet_with_no_extended_entities(self, MockDatabase):
+        # Create a mock database instance
+        mock_db_instance = MockDatabase.return_value
+        mock_db_instance.run_query = MagicMock()
+
+        # Prepare data
         tweet_results = {
             "rest_id": "1234567890",
             "legacy": {
@@ -67,9 +86,14 @@ class TestInsertTweet(unittest.TestCase):
             "views": {"count": 50},
             "source": "<a href='http://twitter.com'>Twitter Web Client</a>",
         }
-        insert_tweet(self.mock_db, tweet_results)
-        self.mock_db.run_query.assert_called_once()
+
+        # Run the test function
+        insert_tweet(mock_db_instance, tweet_results)
+
+        # Check if run_query was called (which includes commit)
+        mock_db_instance.run_query.assert_called_once()
 
 
+# Main execution guard
 if __name__ == "__main__":
     unittest.main()
