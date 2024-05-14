@@ -1,0 +1,8 @@
+data
+*.pyc
+.vscode/settings.json
+t2.json
+t.json
+*.gif
+context.txt
+.env
