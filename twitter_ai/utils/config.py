@@ -13,3 +13,5 @@ class Config:
     DB_NAME = os.getenv("DB_NAME", "crypto-twitter")
     DB_USER = os.getenv("DB_USER", "myuser")
     DB_PASSWORD = os.getenv("DB_PASSWORD", "mypassword")
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
