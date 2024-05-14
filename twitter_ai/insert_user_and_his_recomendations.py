@@ -13,7 +13,7 @@ from utils.config import Config
 
 def main():
     scraper = get_twitter_scraper()
-    username = "blknoiz06"
+    username = "coindesk"
 
     user_data = scraper.users([username])
 
@@ -34,8 +34,11 @@ def main():
         recommended_users = scraper.recommended_users([user_id])
 
         for user_chunk in recommended_users:
-            rest_ids = extract_rest_ids(user_chunk)
-            users = extract_users(user_chunk)
+            user_chunk_processed = user_chunk["data"]["connect_tab_timeline"][
+                "timeline"
+            ]["instructions"][2]["entries"][2]
+            rest_ids = extract_rest_ids(user_chunk_processed)
+            users = extract_users(user_chunk_processed)
 
             insert_users_query, users_params = insert_users_bulk(users)
             db.run_batch_query(insert_users_query, users_params)

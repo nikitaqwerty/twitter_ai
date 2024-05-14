@@ -11,6 +11,10 @@ def get_twitter_scraper():
 
 
 def extract_rest_ids(entries):
+    if not isinstance(entries, list):
+        entries = [entries]
+
+        # entries[0]['data']['connect_tab_timeline']['timeline']['instructions'][2]['entries'][2]['content']['items'][0]
     return [
         item["item"]["itemContent"]["user_results"]["result"]["rest_id"]
         for entry in entries
@@ -20,6 +24,8 @@ def extract_rest_ids(entries):
 
 
 def extract_users(entries):
+    if not isinstance(entries, list):
+        entries = [entries]
     return [
         item["item"]["itemContent"]["user_results"]["result"]
         for entry in entries
