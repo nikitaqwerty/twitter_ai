@@ -1,4 +1,3 @@
-import os
 from twitter.scraper import Scraper
 from twitter.util import init_session
 from db.database import (
@@ -9,25 +8,21 @@ from db.database import (
     update_user_recommendations_status,
 )
 from utils.twitter_utils import extract_rest_ids, extract_users
+from utils.config import Config
 
 
 if __name__ == "__main__":
-    from dotenv import load_dotenv
-
-    load_dotenv()
-
     db = Database(
-        os.getenv("DB_HOST"),
-        os.getenv("DB_NAME"),
-        os.getenv("DB_USER"),
-        os.getenv("DB_PASSWORD"),
+        Config.DB_HOST,
+        Config.DB_NAME,
+        Config.DB_USER,
+        Config.DB_PASSWORD,
     )
     db.connect()
 
-    email = os.getenv("TWITTER_EMAIL")
-    login = os.getenv("TWITTER_LOGIN")
-    password = os.getenv("TWITTER_PASSWORD")
-    scraper = Scraper(email, login, password)
+    scraper = Scraper(
+        Config.TWITTER_EMAIL, Config.TWITTER_LOGIN, Config.TWITTER_PASSWORD
+    )
     username = "blknoiz06"
 
     user_data = scraper.users([username])

@@ -1,14 +1,12 @@
-import os
 from twitter.scraper import Scraper
-from dotenv import load_dotenv
-
-load_dotenv()
+from utils.config import Config  # Import the Config class
 
 
 def get_twitter_scraper():
-    email = os.getenv("TWITTER_EMAIL")
-    login = os.getenv("TWITTER_LOGIN")
-    password = os.getenv("TWITTER_PASSWORD")
+    # Use Config attributes instead of os.getenv
+    email = Config.TWITTER_EMAIL
+    login = Config.TWITTER_LOGIN
+    password = Config.TWITTER_PASSWORD
     return Scraper(email, login, password)
 
 
