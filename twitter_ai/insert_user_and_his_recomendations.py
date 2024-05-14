@@ -13,7 +13,7 @@ from utils.config import Config
 
 def main():
     scraper = get_twitter_scraper()
-    username = "coindesk"
+    username = "tier10k"
 
     user_data = scraper.users([username])
 
@@ -34,9 +34,16 @@ def main():
         recommended_users = scraper.recommended_users([user_id])
 
         for user_chunk in recommended_users:
-            user_chunk_processed = user_chunk["data"]["connect_tab_timeline"][
-                "timeline"
-            ]["instructions"][2]["entries"][2]
+            entries = user_chunk["data"]["connect_tab_timeline"]["timeline"][
+                "instructions"
+            ][2]["entries"]
+            if not isinstance(entries, list):
+                entries = [entries]
+            user_chunk_processed = []
+            for entry in entries:
+                if "mergeallcandidatesmodule" in entry["entryId"]:
+                    user_chunk_processed.append(entry)
+
             rest_ids = extract_rest_ids(user_chunk_processed)
             users = extract_users(user_chunk_processed)
 

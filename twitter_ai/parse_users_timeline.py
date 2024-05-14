@@ -34,7 +34,7 @@ def get_users_to_parse(db, limit=5):
 def fetch_tweets_for_users(scraper, user_ids, max_retries=5, backoff_factor=1):
     retries = 0
     while retries < max_retries:
-        tweets = scraper.tweets(user_ids, limit=20)
+        tweets = scraper.tweets(user_ids, limit=100)
         if tweets and all(isinstance(tweet, dict) for tweet in tweets):
             return tweets
         retries += 1
