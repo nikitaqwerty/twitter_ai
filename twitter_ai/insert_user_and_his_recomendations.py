@@ -1,28 +1,18 @@
 from twitter.scraper import Scraper
 from twitter.util import init_session
-from db.database import (
-    Database,
+from utils.twitter_utils import extract_rest_ids, extract_users, get_twitter_scraper
+from utils.db_utils import (
+    get_db_connection,
     insert_user,
     insert_users_bulk,
     insert_user_recommendations,
     update_user_recommendations_status,
 )
-from utils.twitter_utils import extract_rest_ids, extract_users
 from utils.config import Config
 
 
-if __name__ == "__main__":
-    db = Database(
-        Config.DB_HOST,
-        Config.DB_NAME,
-        Config.DB_USER,
-        Config.DB_PASSWORD,
-    )
-    db.connect()
-
-    scraper = Scraper(
-        Config.TWITTER_EMAIL, Config.TWITTER_LOGIN, Config.TWITTER_PASSWORD
-    )
+def main():
+    scraper = get_twitter_scraper()
     username = "blknoiz06"
 
     user_data = scraper.users([username])
@@ -33,19 +23,33 @@ if __name__ == "__main__":
         or "user" not in user_data[0]["data"]
     ):
         print("Error: No user data found or data is incomplete.")
+        return
 
     user_object = user_data[0]["data"]["user"]["result"]
     user_id = user_object["rest_id"]
-    insert_user(db, user_object)
 
-    recommended_users = scraper.recommended_users([user_id])
+    with get_db_connection() as db:
+        insert_user(db, user_object)
 
-    for user_chunk, user_id in zip(recommended_users, [user_id]):
-        rest_ids = extract_rest_ids(user_chunk)
-        users = extract_users(user_chunk)
+        recommended_users = scraper.recommended_users([user_id])
 
-        insert_users_bulk(db, users)
-        insert_user_recommendations(db, user_id, rest_ids)
-        update_user_recommendations_status(db, user_id)
+        for user_chunk in recommended_users:
+            rest_ids = extract_rest_ids(user_chunk)
+            users = extract_users(user_chunk)
 
-    db.close()
+            insert_users_query, users_params = insert_users_bulk(users)
+            db.run_batch_query(insert_users_query, users_params)
+
+            insert_recommendations_query, recommendations_params = (
+                insert_user_recommendations(user_id, rest_ids)
+            )
+            db.run_batch_query(insert_recommendations_query, recommendations_params)
+
+            update_status_query, status_params = update_user_recommendations_status(
+                user_id
+            )
+            db.run_query(update_status_query, status_params)
+
+
+if __name__ == "__main__":
+    main()
