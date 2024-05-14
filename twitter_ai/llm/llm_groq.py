@@ -6,7 +6,7 @@ class GroqLLM:
     def __init__(self, api_key):
         self.client = Groq(api_key=api_key)
 
-    def get_response(self, query, model="llama3-8b-8192"):
+    def get_response(self, query, model="llama3-70b-8192"):
         try:
             chat_completion = self.client.chat.completions.create(
                 messages=[{"role": "user", "content": query}], model=model
