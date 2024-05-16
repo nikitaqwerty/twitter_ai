@@ -13,7 +13,7 @@ from utils.config import Config
 
 def main():
     scraper = get_twitter_scraper()
-    username = "tier10k"
+    username = "retiredchaddev"
 
     user_data = scraper.users([username])
 
