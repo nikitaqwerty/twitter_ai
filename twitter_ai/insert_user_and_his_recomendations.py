@@ -1,6 +1,6 @@
 from twitter.scraper import Scraper
 from twitter.util import init_session
-from utils.twitter_utils import extract_rest_ids, extract_users, get_twitter_scraper
+from utils.twitter_utils import extract_users_and_ids, get_twitter_scraper
 from utils.db_utils import (
     get_db_connection,
     insert_user,
@@ -44,8 +44,7 @@ def main():
                 if "mergeallcandidatesmodule" in entry["entryId"]:
                     user_chunk_processed.append(entry)
 
-            rest_ids = extract_rest_ids(user_chunk_processed)
-            users = extract_users(user_chunk_processed)
+            users, rest_ids = extract_users_and_ids(user_chunk_processed)
 
             insert_users_query, users_params = insert_users_bulk(users)
             db.run_batch_query(insert_users_query, users_params)

@@ -4,7 +4,7 @@ import time
 
 # common_utils.py
 
-from utils.twitter_utils import extract_rest_ids, extract_users
+from utils.twitter_utils import extract_users_and_ids
 from utils.db_utils import (
     insert_tweet,
     insert_users_bulk,
@@ -20,8 +20,7 @@ def save_users_recommendations_by_ids(db, scraper, user_ids):
         entries = user_chunk["data"]["connect_tab_timeline"]["timeline"][
             "instructions"
         ][2]["entries"]
-        rest_ids = extract_rest_ids(entries)
-        users = extract_users(entries)
+        users, rest_ids = extract_users_and_ids(entries)
 
         insert_users_query, users_params = insert_users_bulk(users)
         db.run_batch_query(insert_users_query, users_params)

@@ -1,6 +1,13 @@
 from twitter.scraper import Scraper
 from utils.config import Config  # Import the Config class
 
+import logging
+
+# Set up logging
+logging.basicConfig(
+    level=logging.ERROR, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
 
 def get_twitter_scraper():
     # Use Config attributes instead of os.getenv
@@ -10,25 +17,36 @@ def get_twitter_scraper():
     return Scraper(email, login, password)
 
 
-def extract_rest_ids(entries):
+def extract_users_and_ids(entries):
+    """
+    Extracts users and their rest IDs from the given entries.
+
+    Parameters:
+    entries (list): A list of entries containing user data.
+
+    Returns:
+    tuple: A tuple containing two lists - one with user details and one with rest IDs.
+    """
     if not isinstance(entries, list):
         entries = [entries]
 
-        # entries[0]['data']['connect_tab_timeline']['timeline']['instructions'][2]['entries'][2]['content']['items'][0]
-    return [
-        item["item"]["itemContent"]["user_results"]["result"]["rest_id"]
-        for entry in entries
-        for item in entry["content"]["items"]
-        if "socialContext" not in item["item"]["itemContent"]
-    ]
+    users = []
+    rest_ids = []
+
+    for entry in entries:
+        for item in entry.get("content", {}).get("items", []):
+            if "socialContext" not in item.get("item", {}).get("itemContent", {}):
+                try:
+                    user = item["item"]["itemContent"]["user_results"]["result"]
+                    users.append(user)
+                    rest_id = user["rest_id"]
+                    rest_ids.append(rest_id)
+                except KeyError as e:
+                    logging.error(f"KeyError: {e} - item: {item}")
+
+    return users, rest_ids
 
 
-def extract_users(entries):
-    if not isinstance(entries, list):
-        entries = [entries]
-    return [
-        item["item"]["itemContent"]["user_results"]["result"]
-        for entry in entries
-        for item in entry["content"]["items"]
-        if "socialContext" not in item["item"]["itemContent"]
-    ]
+# Example usage:
+# entries = [...]  # Assuming entries is a list of entries
+# users, rest_ids = extract_users_and_ids(entries)

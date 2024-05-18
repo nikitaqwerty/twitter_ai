@@ -1,8 +1,4 @@
-from utils.twitter_utils import (
-    get_twitter_scraper,
-    extract_rest_ids,
-    extract_users,
-)
+from utils.twitter_utils import get_twitter_scraper, extract_users_and_ids
 from utils.db_utils import (
     get_db_connection,
     insert_users_bulk,
@@ -22,8 +18,7 @@ def main():
             entries = user_chunk["data"]["connect_tab_timeline"]["timeline"][
                 "instructions"
             ][2]["entries"]
-            rest_ids = extract_rest_ids(entries)
-            users = extract_users(entries)
+            users, rest_ids = extract_users_and_ids(entries)
 
             insert_users_query, users_params = insert_users_bulk(users)
             db.run_batch_query(insert_users_query, users_params)

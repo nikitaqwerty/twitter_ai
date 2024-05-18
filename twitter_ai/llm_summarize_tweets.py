@@ -50,12 +50,13 @@ def fetch_tweets_from_db():
     query = """
         SELECT tweet_text 
         FROM tweets
+        JOIN users ON tweets.user_id = users.rest_id
         WHERE 
         (retweeted_tweet IS NULL OR retweeted_tweet = '{}'::jsonb) 
         AND (quoted_tweet IS NULL OR quoted_tweet = '{}'::jsonb)  
-        AND has_symbols = TRUE
         AND length(tweet_text) > 120
-        ORDER BY created_at DESC
+        AND users.llm_check_score > 8
+        ORDER BY tweets.created_at DESC
         LIMIT 70;
     """
     with get_db_connection() as db:
