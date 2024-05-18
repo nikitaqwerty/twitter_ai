@@ -23,7 +23,7 @@ logging.basicConfig(
 
 USERS_PER_BATCH = 5
 PAGES_PER_USER = 1
-CYCLE_DELAY = 30  # Base delay for the cycle in seconds
+CYCLE_DELAY = 60  # Base delay for the cycle in seconds
 USERS_UPDATE_HOURS_DELAY = 48
 
 

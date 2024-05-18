@@ -65,7 +65,7 @@ def save_tweets_to_db(db, all_pages):
 
 
 def fetch_tweets_for_users(
-    scraper, user_ids, limit_pages=1, max_retries=5, backoff_factor=1
+    scraper, user_ids, limit_pages=1, max_retries=10, backoff_factor=2
 ):
     retries = 0
     while retries < max_retries:
