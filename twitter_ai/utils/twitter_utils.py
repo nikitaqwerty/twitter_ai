@@ -19,7 +19,7 @@ def get_twitter_scraper():
 
 def extract_users_and_ids(entries):
     """
-    Extracts users and their rest IDs from the given entries.
+    Extracts users and their rest IDs from the given entries, filtering out users with empty rest IDs.
 
     Parameters:
     entries (list): A list of entries containing user data.
@@ -38,9 +38,10 @@ def extract_users_and_ids(entries):
             if "socialContext" not in item.get("item", {}).get("itemContent", {}):
                 try:
                     user = item["item"]["itemContent"]["user_results"]["result"]
-                    users.append(user)
-                    rest_id = user["rest_id"]
-                    rest_ids.append(rest_id)
+                    rest_id = user.get("rest_id", "")
+                    if rest_id:  # Only append if rest_id is not empty
+                        users.append(user)
+                        rest_ids.append(rest_id)
                 except KeyError as e:
                     logging.error(f"KeyError: {e} - item: {item}")
 

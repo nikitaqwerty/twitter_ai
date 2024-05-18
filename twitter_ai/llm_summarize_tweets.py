@@ -54,7 +54,7 @@ def fetch_tweets_from_db():
         WHERE 
         (retweeted_tweet IS NULL OR retweeted_tweet = '{}'::jsonb) 
         AND (quoted_tweet IS NULL OR quoted_tweet = '{}'::jsonb)  
-        AND length(tweet_text) > 120
+        AND length(tweet_text) > 20
         AND users.llm_check_score > 8
         ORDER BY tweets.created_at DESC
         LIMIT 70;
