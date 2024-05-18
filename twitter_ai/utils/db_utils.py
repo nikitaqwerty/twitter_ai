@@ -221,6 +221,11 @@ def insert_tweet(db, tweet_results):
     """
     legacy = tweet_results["legacy"]
     media_entities = legacy.get("extended_entities", {}).get("media", [])
+
+    media_urls = [media["media_url_https"] for media in media_entities]
+    media_types = [media["type"] for media in media_entities]
+    media_sizes = {media["media_key"]: media["sizes"] for media in media_entities}
+
     params = (
         tweet_results["rest_id"],
         tweet_results.get("note_tweet", {})
@@ -248,9 +253,9 @@ def insert_tweet(db, tweet_results):
         legacy.get("possibly_sensitive", False),
         legacy.get("lang", ""),
         tweet_results.get("source", ""),
-        json.dumps([media["media_url_https"] for media in media_entities]),
-        json.dumps([media["type"] for media in media_entities]),
-        json.dumps({media["media_key"]: media["sizes"] for media in media_entities}),
+        media_urls,  # Already a list
+        media_types,  # Already a list
+        json.dumps(media_sizes),
         json.dumps(legacy.get("retweeted_status_result", {})),
         json.dumps(tweet_results.get("quoted_status_result", {})),
         json.dumps(tweet_results.get("card", {})),
@@ -271,6 +276,11 @@ def insert_tweets_bulk(db, tweet_results_list):
     for tweet_results in tweet_results_list:
         legacy = tweet_results["legacy"]
         media_entities = legacy.get("extended_entities", {}).get("media", [])
+
+        media_urls = [media["media_url_https"] for media in media_entities]
+        media_types = [media["type"] for media in media_entities]
+        media_sizes = {media["media_key"]: media["sizes"] for media in media_entities}
+
         params = (
             tweet_results["rest_id"],
             tweet_results.get("note_tweet", {})
@@ -301,11 +311,9 @@ def insert_tweets_bulk(db, tweet_results_list):
             legacy.get("possibly_sensitive", False),
             legacy.get("lang", ""),
             tweet_results.get("source", ""),
-            [media["media_url_https"] for media in media_entities],
-            [media["type"] for media in media_entities],
-            json.dumps(
-                {media["media_key"]: media["sizes"] for media in media_entities}
-            ),
+            media_urls,  # Already a list
+            media_types,  # Already a list
+            json.dumps(media_sizes),
             json.dumps(legacy.get("retweeted_status_result", {})),
             json.dumps(tweet_results.get("quoted_status_result", {})),
             json.dumps(tweet_results.get("card", {})),
@@ -353,3 +361,17 @@ def update_user_recommendations_status(rest_id):
     """
     params = (True, datetime.datetime.utcnow(), rest_id)
     return query, params
+
+
+def get_most_mentioned_users(db, limit_users=5):
+    query = """
+        SELECT mentioned_user_id
+        FROM (
+            SELECT unnest(users_mentioned) AS mentioned_user_id
+            FROM tweets
+        ) AS mentioned_users
+        GROUP BY mentioned_user_id
+        ORDER BY COUNT(*) DESC
+        LIMIT %s;
+    """
+    return db.run_query(query, (limit_users,))
