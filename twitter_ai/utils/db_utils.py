@@ -40,7 +40,9 @@ def create_users_table(db):
             tweets_parsed BOOLEAN DEFAULT FALSE,
             tweets_parsed_last_timestamp TIMESTAMP DEFAULT NULL,
             recommendations_pulled BOOLEAN DEFAULT FALSE,
-            recommendations_pulled_last_timestamp TIMESTAMP DEFAULT NULL
+            recommendations_pulled_last_timestamp TIMESTAMP DEFAULT NULL,
+            llm_check_score FLOAT DEFAULT NULL,
+            llm_check_last_timestamp TIMESTAMP DEFAULT NULL
         );
     """
     db.run_query(query)

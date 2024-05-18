@@ -2,7 +2,7 @@ import os
 import time
 import logging
 import traceback
-import datetime
+import random  # Import the random module
 from twitter.scraper import Scraper
 from utils.db_utils import (
     get_db_connection,
@@ -21,7 +21,7 @@ logging.basicConfig(
 
 USERS_PER_BATCH = 5
 PAGES_PER_USER = 1
-CYCLE_DELAY = 30
+CYCLE_DELAY = 30  # Base delay for the cycle in seconds
 USERS_UPDATE_HOURS_DELAY = 48
 
 
@@ -76,7 +76,9 @@ def main():
                         )
 
                 logging.info("Cycle complete. Waiting for the next cycle.")
-                time.sleep(CYCLE_DELAY)
+                # Generate a random sleep time around CYCLE_DELAY
+                random_sleep_time = random.uniform(CYCLE_DELAY * 0.5, CYCLE_DELAY * 1.5)
+                time.sleep(random_sleep_time)
             except Exception as e:
                 logging.error(f"An error occurred: {e}")
                 logging.error(f"{traceback.format_exc()}")
