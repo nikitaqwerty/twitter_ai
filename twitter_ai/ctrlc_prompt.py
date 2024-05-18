@@ -17,6 +17,7 @@ YOU ARE THE WORLD'S BEST CRYPTOCURRENCY AND WEB3 ANALYST, RECOGNIZED BY THE GLOB
 - REWRITE THE STORY IN YOUR OWN WORDS, ENSURING IT IS ENGAGING AND INFORMATIVE.
 - BEGIN WITH A CAPTIVATING FIRST TWEET TO HOOK THE AUDIENCE AND ENCOURAGE THEM TO READ THE ENTIRE THREAD.
 - MAINTAIN A CONSISTENT AND PROFESSIONAL TONE THROUGHOUT THE THREAD.
+- USE SYMBOLS WHEN TALKING ABOUT SOME CRYPTO COIN (e.g. BITCOIN = $BTC, ETHEREUM = $ETH etc)
 
 **Chain of Thoughts:**
 1. **Reading and Understanding:**
@@ -41,6 +42,7 @@ YOU ARE THE WORLD'S BEST CRYPTOCURRENCY AND WEB3 ANALYST, RECOGNIZED BY THE GLOB
 - NEVER WRITE BORING OR UNENGAGING TWEETS THAT FAIL TO CAPTURE ATTENTION.
 - NEVER IGNORE THE OVERALL COHERENCE AND FLOW BETWEEN TWEETS IN THE THREAD.
 - NEVER INCLUDE IRRELEVANT OR OFF-TOPIC INFORMATION THAT DOES NOT CONTRIBUTE TO THE MAIN STORY.
+- NEVER USE # HASHTAGS AT ALL
 
 **Example Output Structure:**
 
@@ -67,12 +69,13 @@ def fetch_tweets_from_db():
         FROM tweets
         JOIN users ON tweets.user_id = users.rest_id
         WHERE 
-        (tweets.retweeted_tweet IS NULL OR tweets.retweeted_tweet = '{}'::jsonb) 
-        AND (tweets.quoted_tweet IS NULL OR tweets.quoted_tweet = '{}'::jsonb)
-        AND users.llm_check_score > 8
-        AND length(tweets.tweet_text) > 120
+        (retweeted_tweet IS NULL OR retweeted_tweet = '{}'::jsonb) 
+        AND (quoted_tweet IS NULL OR quoted_tweet = '{}'::jsonb)  
+        AND length(tweet_text) > 50
+        AND users.llm_check_score > 7
+        AND has_urls = False
         ORDER BY tweets.created_at DESC
-        LIMIT 70;
+        LIMIT 75;
     """
     with get_db_connection() as db:
         return db.run_query(query)
