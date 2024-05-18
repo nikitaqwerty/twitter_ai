@@ -19,7 +19,7 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-USERS_PER_BATCH = 10
+USERS_PER_BATCH = 5
 PAGES_PER_USER = 1
 CYCLE_DELAY = 30
 USERS_UPDATE_HOURS_DELAY = 48

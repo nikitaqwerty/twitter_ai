@@ -1,6 +1,7 @@
 import logging
 from utils.db_utils import insert_tweet
 from colorama import init, Fore, Style
+import time
 
 
 def save_tweets_to_db(db, all_pages):
