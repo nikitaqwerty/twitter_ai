@@ -58,7 +58,7 @@ def main():
                 )
                 user_ids = [user[0] for user in users_to_parse]
 
-                if user_ids[0]:
+                if user_ids and user_ids[0]:
                     logging.info(f"Processing users: {user_ids}")
                     tweets = fetch_tweets_for_users(
                         scraper, user_ids, limit_pages=PAGES_PER_USER
