@@ -1,4 +1,8 @@
 data
+data/*
+data/
+batch/
+twitter_ai/data/
 *.pyc
 .vscode/settings.json
 t2.json
