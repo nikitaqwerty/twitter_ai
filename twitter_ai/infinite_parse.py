@@ -2,17 +2,19 @@ import os
 import time
 import logging
 import traceback
-import random  # Import the random module
+import random
 from twitter.scraper import Scraper
 from utils.db_utils import (
     get_db_connection,
-    insert_tweet,
     update_user_tweets_status,
-    insert_users_bulk,
     get_most_mentioned_users,
 )
 from utils.twitter_utils import get_twitter_scraper
-from utils.common_utils import fetch_tweets_for_users, save_tweets_to_db
+from utils.common_utils import (
+    fetch_tweets_for_users,
+    save_tweets_to_db,
+    save_users_recommendations_by_ids,
+)
 
 # Initialize logging
 logging.basicConfig(
@@ -31,9 +33,22 @@ def get_users_to_parse(db, hours=48, limit_users=2):
         FROM users
         WHERE tweets_parsed = FALSE 
            OR tweets_parsed_last_timestamp < NOW() - INTERVAL '%s HOURS'
+        ORDER BY llm_check_score DESC
         LIMIT %s;
     """
     return db.run_query(query, (hours, limit_users))
+
+
+def get_high_score_users(db, min_score=8, hours=48, limit_users=5):
+    query = """
+        SELECT rest_id, username
+        FROM users
+        WHERE llm_check_score > %s 
+            AND recommendations_pulled_last_timestamp < NOW() - INTERVAL '%s HOURS' 
+        ORDER BY recommendations_pulled_last_timestamp ASC
+        LIMIT %s;
+    """
+    return db.run_query(query, (min_score, hours, limit_users))
 
 
 def main():
@@ -54,29 +69,30 @@ def main():
                     if tweets:
                         save_tweets_to_db(db, tweets)
                         update_user_tweets_status(db, user_ids)
-                else:
-                    most_mentioned_users = get_most_mentioned_users(db)
-                    if most_mentioned_users:
-                        user_ids = [user[0] for user in most_mentioned_users]
-                        logging.info(
-                            f"Fetching data for most mentioned users: {user_ids}"
-                        )
 
-                        users_data = scraper.users_by_ids(user_ids)
-                        if users_data:
-                            insert_users_query, users_params = insert_users_bulk(
-                                users_data
-                            )
-                            db.run_batch_query(insert_users_query, users_params)
-                        else:
-                            logging.info("No most mentioned user data fetched.")
+                else:
+                    high_score_users = get_high_score_users(db)
+                    if high_score_users:
+                        user_ids = [user[0] for user in high_score_users]
+                        save_users_recommendations_by_ids(db, scraper, user_ids)
                     else:
-                        logging.info(
-                            "No users to parse and no most mentioned users found."
-                        )
+                        most_mentioned_users = get_most_mentioned_users(db)
+                        if most_mentioned_users:
+                            user_ids = [user[0] for user in most_mentioned_users]
+                            logging.info(
+                                f"Fetching data for most mentioned users: {user_ids}"
+                            )
+
+                            users_data = scraper.users_by_ids(user_ids)
+                            if users_data:
+                                insert_users_query, users_params = insert_users_bulk(
+                                    users_data
+                                )
+                                db.run_batch_query(insert_users_query, users_params)
+                            else:
+                                logging.info("No most mentioned user data fetched.")
 
                 logging.info("Cycle complete. Waiting for the next cycle.")
-                # Generate a random sleep time around CYCLE_DELAY
                 random_sleep_time = random.uniform(CYCLE_DELAY * 0.5, CYCLE_DELAY * 1.5)
                 time.sleep(random_sleep_time)
             except Exception as e:

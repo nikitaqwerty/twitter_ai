@@ -5,6 +5,7 @@ from utils.config import Config
 from llm.llm_groq import GroqLLM
 from datetime import datetime
 import re
+import time
 
 # Configure logging
 logging.basicConfig(
@@ -48,13 +49,30 @@ def fetch_latest_tweets_for_user(db, user_id, limit=20):
     return db.run_query(query, (user_id, limit))
 
 
-def analyze_tweets_with_llm(tweets):
+def analyze_tweets_with_llm(tweets, max_retries=5, backoff_factor=1):
     tweets_text = "\n=============\n".join(tweet[0] for tweet in tweets)
     prompt = prompt_template.format(tweets=tweets_text)
-    response = groq_llm.get_response(prompt)
-    print(response)
+
+    retries = 0
+    while retries < max_retries:
+        response = groq_llm.get_response(prompt)
+        if response:
+            break
+        else:
+            wait_time = backoff_factor * (2**retries)
+            logging.error(
+                f"Error fetching LLM response. Retrying in {wait_time} seconds..."
+            )
+            time.sleep(wait_time)
+            retries += 1
+
+    if not response:
+        raise ValueError(
+            "Max retries reached or failed to get a valid response from LLM"
+        )
 
     # Use regex to find the score in the response (0-10 range)
+    print(response)
     match = re.search(r"\b(10(?:\.0+)?|\d(?:\.\d+)?)\b", response)
     if match:
         score = float(match.group(1))
