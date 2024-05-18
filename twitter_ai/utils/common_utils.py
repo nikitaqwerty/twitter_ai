@@ -39,9 +39,23 @@ def save_tweets_to_db(db, all_pages):
         if not isinstance(page, list):
             page = [page]
         for tweets in page:
-            for instruction in tweets["data"]["user"]["result"]["timeline_v2"][
-                "timeline"
-            ]["instructions"]:
+            try:
+                timeline_v2 = tweets["data"]["user"]["result"]["timeline_v2"]
+            except KeyError as e:
+                logging.error(
+                    f"{Fore.RED}KeyError: {e} - 'timeline_v2' data is missing{Style.RESET_ALL}"
+                )
+                continue
+
+            try:
+                instructions = timeline_v2["timeline"]["instructions"]
+            except KeyError as e:
+                logging.error(
+                    f"{Fore.RED}KeyError: {e} - 'instructions' data is missing{Style.RESET_ALL}"
+                )
+                continue
+
+            for instruction in instructions:
                 if instruction["type"] == "TimelineAddEntries":
                     for entry in instruction["entries"]:
                         if entry["entryId"].startswith("tweet"):
@@ -60,6 +74,10 @@ def save_tweets_to_db(db, all_pages):
                             except KeyError as e:
                                 logging.error(
                                     f"{Fore.RED}KeyError: {e} - tweet data: {entry}{Style.RESET_ALL}"
+                                )
+                            except Exception as e:
+                                logging.error(
+                                    f"{Fore.RED}Unexpected error: {e} - tweet data: {entry}{Style.RESET_ALL}"
                                 )
 
 
