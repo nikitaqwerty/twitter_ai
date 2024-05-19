@@ -378,3 +378,21 @@ def get_most_mentioned_users(db, limit_users=5):
         LIMIT %s;
     """
     return db.run_query(query, (limit_users,))
+
+
+def get_most_mentioned_new_users(db, limit_users=5):
+    query = """
+        WITH mentioned_users AS (
+            SELECT unnest(t.users_mentioned) AS mentioned_user_id
+            FROM tweets t
+            JOIN users u ON t.user_id = u.rest_id
+            WHERE u.llm_check_score > 5
+        )
+        SELECT mentioned_user_id
+        FROM mentioned_users
+        WHERE mentioned_user_id NOT IN (SELECT rest_id FROM users)
+        GROUP BY mentioned_user_id
+        ORDER BY COUNT(*) DESC
+        LIMIT %s;
+    """
+    return db.run_query(query, (limit_users,))

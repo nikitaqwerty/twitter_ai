@@ -79,7 +79,7 @@ class TestInsertTweet(unittest.TestCase):
 
         # Adjust the check to reflect how media_urls are actually passed
         # Assume media_urls are serialized into a JSON string
-        expected_media_json = '["https://example.com/media.jpg"]'
+        expected_media_json = ["https://example.com/media.jpg"]
         self.assertIn(expected_media_json, params)  # Check for JSON string in params
 
 
