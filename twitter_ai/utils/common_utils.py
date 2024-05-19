@@ -15,6 +15,7 @@ from utils.db_utils import (
 
 def save_users_recommendations_by_ids(db, scraper, user_ids):
     recommended_users = scraper.recommended_users(user_ids)
+    new_users_count = 0
 
     for user_chunk, user_id in zip(recommended_users, user_ids):
         entries = user_chunk["data"]["connect_tab_timeline"]["timeline"][
@@ -23,7 +24,10 @@ def save_users_recommendations_by_ids(db, scraper, user_ids):
         users, rest_ids = extract_users_and_ids(entries)
 
         insert_users_query, users_params = insert_users_bulk(users)
-        db.run_batch_query(insert_users_query, users_params)
+        inserted_users = db.run_batch_query(insert_users_query, users_params)
+
+        if inserted_users:
+            new_users_count += len(inserted_users)
 
         insert_recommendations_query, recommendations_params = (
             insert_user_recommendations(user_id, rest_ids)
@@ -32,6 +36,8 @@ def save_users_recommendations_by_ids(db, scraper, user_ids):
 
         update_status_query, status_params = update_user_recommendations_status(user_id)
         db.run_query(update_status_query, status_params)
+
+    return new_users_count
 
 
 def save_tweets_to_db(db, all_pages):

@@ -170,7 +170,8 @@ def insert_users_bulk(user_results):
             is_translator, verified, professional_type, category, tweets_parsed, tweets_parsed_last_timestamp,
             recommendations_pulled, recommendations_pulled_last_timestamp
         ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ON CONFLICT (rest_id) DO NOTHING;
+        ON CONFLICT (rest_id) DO NOTHING
+        RETURNING rest_id;
     """
     params_list = []
     for user_result in user_results:
