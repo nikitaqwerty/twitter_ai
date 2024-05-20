@@ -390,6 +390,7 @@ def get_most_mentioned_new_users(db, limit_users=5):
         SELECT mentioned_user_id
         FROM mentioned_users
         WHERE mentioned_user_id NOT IN (SELECT rest_id FROM users)
+        AND length(mentioned_user_id) > 3
         GROUP BY mentioned_user_id
         ORDER BY COUNT(*) DESC
         LIMIT %s;
