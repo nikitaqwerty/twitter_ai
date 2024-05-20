@@ -13,6 +13,36 @@ from utils.db_utils import (
 )
 
 
+def process_and_insert_users(db, scraper, user_ids):
+    # Fetch user data from Twitter API
+    users_data = scraper.users_by_ids(user_ids)
+
+    if not users_data:
+        print("No user data fetched from Twitter.")
+        return 0
+
+    # Extract user data
+    users = []
+    for user_data in users_data[0]["data"]["users"]:
+        try:
+            entries = user_data["result"]
+            users.append(entries)
+        except KeyError as e:
+            print(f"KeyError while extracting users: {e}")
+            continue
+
+    if not users:
+        print("No valid user data extracted.")
+        return 0
+
+    # Insert user data into the database
+    insert_users_query, users_params = insert_users_bulk(users)
+    inserted_users = db.run_batch_query(insert_users_query, users_params)
+
+    # Return the number of inserted users
+    return inserted_users
+
+
 def save_users_recommendations_by_ids(db, scraper, user_ids):
     recommended_users = scraper.recommended_users(user_ids)
     new_users_count = 0

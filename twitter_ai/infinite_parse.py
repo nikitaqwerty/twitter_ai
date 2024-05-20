@@ -3,13 +3,17 @@ import time
 import logging
 import traceback
 import random
-from twitter.scraper import Scraper
-from utils.db_utils import get_db_connection, update_user_tweets_status
+from utils.db_utils import (
+    get_db_connection,
+    update_user_tweets_status,
+    get_most_mentioned_new_users,
+)
 from utils.twitter_utils import get_twitter_scraper
 from utils.common_utils import (
     fetch_tweets_for_users,
     save_tweets_to_db,
     save_users_recommendations_by_ids,
+    process_and_insert_users,
 )
 
 # Initialize logging
@@ -74,7 +78,23 @@ def main():
                     high_score_users = get_high_score_users(db, limit_users=5)
                     if high_score_users:
                         user_ids = [user[0] for user in high_score_users]
-                        save_users_recommendations_by_ids(db, scraper, user_ids)
+                        new_users_count_ = save_users_recommendations_by_ids(
+                            db, scraper, user_ids
+                        )
+                        logging.info(f"New users inserted by X rec {new_users_count}")
+                        if new_users_count == 0:
+                            user_ids = [
+                                user[0]
+                                for user in get_most_mentioned_new_users(
+                                    db, limit_users=5
+                                )
+                            ]
+                            new_users_count = process_and_insert_users(
+                                db, scraper, user_ids
+                            )
+                            logging.info(
+                                f"New users inserted by most mentioned algo {new_users_count}"
+                            )
 
                 logging.info("Cycle complete. Waiting for the next cycle.")
                 random_sleep_time = random.uniform(CYCLE_DELAY * 0.5, CYCLE_DELAY * 1.5)
