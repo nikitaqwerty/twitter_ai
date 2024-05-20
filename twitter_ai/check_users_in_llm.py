@@ -71,8 +71,6 @@ def analyze_tweets_with_llm(tweets, max_retries=5, backoff_factor=1):
             "Max retries reached or failed to get a valid response from LLM"
         )
 
-    # Use regex to find the score in the response (0-10 range)
-    print(response)
     match = re.search(r"\b(10(?:\.0+)?|\d(?:\.\d+)?)\b", response)
     if match:
         score = float(match.group(1))
@@ -93,22 +91,30 @@ def update_llm_check_score(db, user_id, score):
 
 
 def main():
-    with get_db_connection() as db:
-        users = fetch_users_from_db()
-        for user in users:
-            user_id = user[0]
-            logging.info(f"Processing user: {user_id}")
+    while True:
+        try:
+            with get_db_connection() as db:
+                users = fetch_users_from_db()
+                for user in users:
+                    user_id = user[0]
+                    logging.info(f"Processing user: {user_id}")
 
-            tweets = fetch_latest_tweets_for_user(db, user_id)
-            if not tweets:
-                logging.info(f"No tweets found for user: {user_id}")
-                continue
+                    tweets = fetch_latest_tweets_for_user(db, user_id)
+                    if not tweets:
+                        logging.info(f"No tweets found for user: {user_id}")
+                        continue
 
-            score = analyze_tweets_with_llm(tweets)
-            logging.info(f"User {user_id} LLM check score: {score}")
+                    score = analyze_tweets_with_llm(tweets)
+                    logging.info(f"User {user_id} LLM check score: {score}")
 
-            update_llm_check_score(db, user_id, score)
-            logging.info(f"Updated LLM check score for user: {user_id}")
+                    update_llm_check_score(db, user_id, score)
+                    logging.info(f"Updated LLM check score for user: {user_id}")
+
+            time.sleep(300)  # Sleep for 5 minutes before checking again
+
+        except Exception as e:
+            logging.error(f"An error occurred: {e}")
+            time.sleep(60)  # Sleep for 1 minute before retrying
 
 
 if __name__ == "__main__":
