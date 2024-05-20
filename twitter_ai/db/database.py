@@ -53,11 +53,7 @@ class Database:
         self.cursor.executemany(query, params_list)
         self.connection.commit()  # Ensure that changes are committed
 
-        # Fetch results if RETURNING clause is used
-        try:
-            return self.cursor.fetchall()
-        except psycopg2.ProgrammingError:
-            return None
+        return self.cursor.rowcount
 
     def close(self):
         if self.cursor:
