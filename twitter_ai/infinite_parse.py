@@ -78,7 +78,7 @@ def main():
                     high_score_users = get_high_score_users(db, limit_users=5)
                     if high_score_users:
                         user_ids = [user[0] for user in high_score_users]
-                        new_users_count_ = save_users_recommendations_by_ids(
+                        new_users_count = save_users_recommendations_by_ids(
                             db, scraper, user_ids
                         )
                         logging.info(f"New users inserted by X rec {new_users_count}")
