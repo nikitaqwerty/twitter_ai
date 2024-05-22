@@ -3,7 +3,7 @@ import logging
 from utils.config import Config
 from utils.db_utils import get_db_connection
 from utils.twitter_utils import get_twitter_account
-from twitter_ai.llm.llm_api import OpenAIAPIHandler
+from llm.llm_api import OpenAIAPIHandler
 from datetime import datetime
 import random
 import time
