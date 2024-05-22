@@ -1,12 +1,12 @@
-import os
 import logging
 from utils.config import Config
 from utils.db_utils import get_db_connection
 from utils.twitter_utils import get_twitter_account
-from llm.llm_api import OpenAIAPIHandler
+from llm.llm_api import OpenAIAPIHandler, GroqAPIHandler
 from datetime import datetime
 import random
 import time
+import re
 
 # Configure logging
 logging.basicConfig(
@@ -86,10 +86,18 @@ def fetch_tweets_from_db(db):
 
 
 def summarize_tweets(tweets, llm):
-    tweets_text = "\n=============\n".join(list([tweet[0] for tweet in tweets]))
+    tweets_text = "\n=============\n".join([tweet[0] for tweet in tweets])
     logging.info("Summarizing tweets for the prompt.")
 
-    summary = llm.get_response(f"{prompt_template} \n\n {tweets_text}")
+    prompt = f"{prompt_template} \n\n {tweets_text}"
+    summary = llm.get_response(prompt)
+
+    # Using regular expression to find text inside the longest pair of quotes
+    match = re.findall(r'"([^"]{50,})"', summary)
+    if match:
+        summary = max(
+            match, key=len
+        )  # Select the longest string if multiple matches found
 
     return summary
 
@@ -97,7 +105,8 @@ def summarize_tweets(tweets, llm):
 def main():
     # Initialize OpenAI LLM
     logging.info("Initializing OpenAI LLM.")
-    llm = OpenAIAPIHandler(Config.OPENAI_API_KEY, model="gpt-4")
+    # llm = OpenAIAPIHandler(Config.OPENAI_API_KEY, model="gpt-4")
+    llm = GroqAPIHandler(Config.GROQ_API_KEY, model="llama3-70b-8192")
 
     account = get_twitter_account()
     with get_db_connection() as db:
@@ -113,7 +122,7 @@ def main():
 
                 # Summarize tweets
                 logging.info("Summarizing tweets.")
-                twit = summarize_tweets(tweets, llm).strip()
+                twit = summarize_tweets(tweets, llm)
                 if not twit:
                     logging.warning(
                         "Received empty tweet from LLM. Skipping this cycle."

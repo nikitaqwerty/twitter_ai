@@ -11,19 +11,37 @@ logging.basicConfig(
 
 
 def get_twitter_scraper():
-    # Use Config attributes instead of os.getenv
-    email = Config.TWITTER_EMAIL
-    login = Config.TWITTER_LOGIN
-    password = Config.TWITTER_PASSWORD
-    return Scraper(email, login, password)
+    try:
+        # Try to resume session using cookies
+        scraper = Scraper(cookies="rndm_world.cookies")
+        logging.info("Loaded scraper from cookies.")
+    except Exception as e:
+        logging.error(f"Failed to load scraper from cookies: {e}")
+        # If an error occurs, login using credentials
+        email = Config.TWITTER_EMAIL
+        login = Config.TWITTER_LOGIN
+        password = Config.TWITTER_PASSWORD
+        scraper = Scraper(email, login, password)
+        scraper.save_cookies()
+        logging.info("Logged in and saved scraper cookies.")
+    return scraper
 
 
 def get_twitter_account():
-    # Use Config attributes instead of os.getenv
-    email = Config.TWITTER_EMAIL
-    login = Config.TWITTER_LOGIN
-    password = Config.TWITTER_PASSWORD
-    return Account(email, login, password)
+    try:
+        # Try to resume session using cookies
+        account = Account(cookies="rndm_world.cookies")
+        logging.info("Loaded account from cookies.")
+    except Exception as e:
+        logging.error(f"Failed to load account from cookies: {e}")
+        # If an error occurs, login using credentials
+        email = Config.TWITTER_EMAIL
+        login = Config.TWITTER_LOGIN
+        password = Config.TWITTER_PASSWORD
+        account = Account(email, login, password)
+        account.save_cookies()
+        logging.info("Logged in and saved account cookies.")
+    return account
 
 
 def extract_users_and_ids(entries):
@@ -55,8 +73,3 @@ def extract_users_and_ids(entries):
                     logging.error(f"KeyError: {e} - item: {item}")
 
     return users, rest_ids
-
-
-# Example usage:
-# entries = [...]  # Assuming entries is a list of entries
-# users, rest_ids = extract_users_and_ids(entries)

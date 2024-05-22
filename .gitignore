@@ -11,3 +11,4 @@ t.json
 context.txt
 .env
 .DS_Store
+*.cookies

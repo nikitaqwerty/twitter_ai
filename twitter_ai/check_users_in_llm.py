@@ -2,7 +2,7 @@ import os
 import logging
 from utils.db_utils import get_db_connection
 from utils.config import Config
-from twitter_ai.llm.llm_api import GroqAPIHandler
+from llm.llm_api import GroqAPIHandler
 from datetime import datetime
 import re
 import time
