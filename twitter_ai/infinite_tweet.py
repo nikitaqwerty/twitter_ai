@@ -2,7 +2,7 @@ import logging
 from utils.config import Config
 from utils.db_utils import get_db_connection
 from utils.twitter_utils import get_twitter_account
-from llm.llm_api import OpenAIAPIHandler, GroqAPIHandler
+from llm.llm_api import OpenAIAPIHandler, GroqAPIHandler, g4fAPIHandler
 from datetime import datetime
 import random
 import time
@@ -103,7 +103,8 @@ def summarize_tweets(tweets, llm):
 def main():
     # Initialize OpenAI LLM
     logging.info("Initializing OpenAI LLM.")
-    llm = OpenAIAPIHandler(Config.OPENAI_API_KEY, model="gpt-4o")
+    # llm = OpenAIAPIHandler(Config.OPENAI_API_KEY, model="gpt-4o")
+    llm = g4fAPIHandler(model="gpt-4o")
     # llm = GroqAPIHandler(Config.GROQ_API_KEY, model="llama3-70b-8192")
 
     account = get_twitter_account()

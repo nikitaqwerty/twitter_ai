@@ -1,6 +1,7 @@
 import os
 from groq import Groq
 from openai import OpenAI
+from g4f.client import Client
 import logging
 
 
@@ -56,6 +57,29 @@ class OpenAIAPIHandler(APIHandler):
             return None
 
 
+class g4fAPIHandler(APIHandler):
+    DEFAULT_MODEL = "gpt-4o"
+
+    def __init__(self, api_key="", model=None):
+        if model is None:
+            model = self.DEFAULT_MODEL
+        super().__init__(api_key, model)
+        self.client = Client()
+
+    def get_response(self, query):
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "user", "content": query},
+                ],
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            logging.error(f"G4F API error: {e}")
+            return None
+
+
 if __name__ == "__main__":
     import sys
 
@@ -63,16 +87,18 @@ if __name__ == "__main__":
     from utils.config import Config
 
     logging.basicConfig(level=logging.INFO)
-    API_PROVIDER = "openai"
+    API_PROVIDER = "g4f"
     # Select API based on configuration
     if API_PROVIDER.lower() == "groq":
         api_handler = GroqAPIHandler(api_key=Config.GROQ_API_KEY)
     elif API_PROVIDER.lower() == "openai":
         api_handler = OpenAIAPIHandler(api_key=Config.OPENAI_API_KEY)
+    elif API_PROVIDER.lower() == "g4f":
+        api_handler = g4fAPIHandler()
     else:
         raise ValueError("Unsupported API provider specified.")
 
-    query = "Explain the importance of fast language models"
+    query = "What model am I talking with?"
     response = api_handler.get_response(query)
     if response:
         print(response)

@@ -1,6 +1,14 @@
 from twitter.scraper import Scraper
 from twitter.account import Account
-from utils.config import Config  # Import the Config class
+
+try:
+    from utils.config import Config
+except:
+    import sys
+    import os
+
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from utils.config import Config
 
 import logging
 
@@ -73,3 +81,11 @@ def extract_users_and_ids(entries):
                     logging.error(f"KeyError: {e} - item: {item}")
 
     return users, rest_ids
+
+
+if __name__ == "__main__":
+    acc = get_twitter_account()
+    resp = acc.tweet("omg")
+    # tweet_results = resp['data']['create_tweet']['tweet_results']['result']
+    # id = tweet_results['rest_id']
+    print(resp)
