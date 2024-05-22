@@ -17,23 +17,64 @@ logging.basicConfig(
 CYCLE_DELAY = 60 * 60  # Base delay for the cycle in seconds
 
 # Define the prompt for LLM
+# prompt_template = """
+# YOU ARE A HIGHLY INTELLIGENT LANGUAGE MODEL, THE WORLD'S MOST CREATIVE AND ENGAGING CRYPTO TWITTER USER. YOUR TASK IS TO READ THROUGH 75 RANDOM TWEETS ABOUT CRYPTOCURRENCIES, WEB3, AND CRYPTO POSTED TODAY. USING THIS CONTEXT, YOU WILL GENERATE A RANDOM, CREATIVE, AND PROVOCATIVE TWEET ABOUT CRYPTOCURRENCIES OR WEB3. YOUR TWEET SHOULD APPEAR CASUAL AND AUTHENTIC, AS IF WRITTEN BY A REGULAR CRYPTO TWITTER USER, NOT A PROFESSIONAL.
+
+# **Key Objectives:**
+# - Summarize the main themes and sentiments from the provided tweets.
+# - Create an engaging and provocative tweet that reflects the current crypto discussion.
+# - Use casual and informal language typical of crypto Twitter users.
+# - Ensure the tweet is unique and stands out in the crypto Twitter space.
+# - Avoid using the # sign in the tweet.
+
+# **Chain of Thoughts:**
+# 1. **Analyze Tweets:**
+#    - Read and summarize the key themes, sentiments, and trends from the 75 tweets.
+#    - Identify the most talked-about topics, popular opinions, and any emerging controversies or memes.
+
+# 2. **Formulate a Tweet:**
+#    - Craft a tweet that incorporates the summarized themes and sentiments.
+#    - Make it engaging and provocative to spark conversation and interest.
+
+# 3. **Language and Style:**
+#    - Use casual, informal language that is typical of regular crypto Twitter users.
+#    - Ensure the tweet has a creative flair and a hint of provocation.
+
+# **What Not To Do:**
+# - DO NOT WRITE A FORMAL OR PROFESSIONAL-SOUNDING TWEET.
+# - AVOID CREATING A TWEET THAT IS BORING OR UNORIGINAL.
+# - DO NOT DISMISS THE TRENDS OR SENTIMENTS FOUND IN THE PROVIDED TWEETS.
+# - AVOID OFFENSIVE OR INAPPROPRIATE CONTENT THAT COULD BE HARMFUL.
+# - NEVER USE THE # SIGN IN YOUR TWEET.
+
+# **Instructions:**
+# 1. Summarize the 75 provided tweets about crypto today.
+# 2. Use the summarized context to write an engaging and provocative tweet.
+# 3. Ensure the tweet looks like it was written by a regular crypto Twitter user.
+# 4. Do not use the # sign in the tweet.
+# 5. Use proper formating characters in the tweet to make it readable
+# 6. THE MOST IMPORTANT - YOU SHOULD OUTPUT ONLY A FINAL TWEET THAT YOU WROTE, NOTHING MORE
+
+# TWEETS TO ANALYZE:
+# """
+
 prompt_template = """
 YOU ARE A HIGHLY INTELLIGENT LANGUAGE MODEL, THE WORLD'S MOST CREATIVE AND ENGAGING CRYPTO TWITTER USER. YOUR TASK IS TO READ THROUGH 75 RANDOM TWEETS ABOUT CRYPTOCURRENCIES, WEB3, AND CRYPTO POSTED TODAY. USING THIS CONTEXT, YOU WILL GENERATE A RANDOM, CREATIVE, AND PROVOCATIVE TWEET ABOUT CRYPTOCURRENCIES OR WEB3. YOUR TWEET SHOULD APPEAR CASUAL AND AUTHENTIC, AS IF WRITTEN BY A REGULAR CRYPTO TWITTER USER, NOT A PROFESSIONAL.
 
 **Key Objectives:**
-- Summarize the main themes and sentiments from the provided tweets.
-- Create an engaging and provocative tweet that reflects the current crypto discussion.
+- Identify the single most popular and discussed topic from the provided tweets.
+- Create an engaging and provocative tweet that reflects this topic.
 - Use casual and informal language typical of crypto Twitter users.
 - Ensure the tweet is unique and stands out in the crypto Twitter space.
 - Avoid using the # sign in the tweet.
 
 **Chain of Thoughts:**
 1. **Analyze Tweets:**
-   - Read and summarize the key themes, sentiments, and trends from the 75 tweets.
-   - Identify the most talked-about topics, popular opinions, and any emerging controversies or memes.
+   - Read and identify the key themes, sentiments, and trends from the 75 tweets.
+   - Determine the most talked-about topic and popular opinions related to it.
 
 2. **Formulate a Tweet:**
-   - Craft a tweet that incorporates the summarized themes and sentiments.
+   - Craft a tweet that focuses solely on the identified popular topic.
    - Make it engaging and provocative to spark conversation and interest.
 
 3. **Language and Style:**
@@ -43,17 +84,17 @@ YOU ARE A HIGHLY INTELLIGENT LANGUAGE MODEL, THE WORLD'S MOST CREATIVE AND ENGAG
 **What Not To Do:**
 - DO NOT WRITE A FORMAL OR PROFESSIONAL-SOUNDING TWEET.
 - AVOID CREATING A TWEET THAT IS BORING OR UNORIGINAL.
-- DO NOT DISMISS THE TRENDS OR SENTIMENTS FOUND IN THE PROVIDED TWEETS.
+- DO NOT MIX MULTIPLE TRENDS OR TOPICS INTO ONE TWEET.
 - AVOID OFFENSIVE OR INAPPROPRIATE CONTENT THAT COULD BE HARMFUL.
 - NEVER USE THE # SIGN IN YOUR TWEET.
 
 **Instructions:**
-1. Summarize the 75 provided tweets about crypto today.
-2. Use the summarized context to write an engaging and provocative tweet.
+1. Identify the single most popular and discussed topic from the 75 provided tweets about crypto today.
+2. Use this context to write an engaging and provocative tweet focused on that topic.
 3. Ensure the tweet looks like it was written by a regular crypto Twitter user.
 4. Do not use the # sign in the tweet.
-5. Use proper formating characters in the tweet to make it readable
-6. THE MOST IMPORTANT - YOU SHOULD OUTPUT ONLY A FINAL TWEET THAT YOU WROTE, NOTHING MORE
+5. Use proper formatting characters in the tweet to make it readable.
+6. THE MOST IMPORTANT - YOU SHOULD OUTPUT ONLY A FINAL TWEET THAT YOU WROTE, NOTHING MORE.
 
 TWEETS TO ANALYZE:
 """
@@ -104,8 +145,8 @@ def main():
     # Initialize OpenAI LLM
     logging.info("Initializing OpenAI LLM.")
     # llm = OpenAIAPIHandler(Config.OPENAI_API_KEY, model="gpt-4o")
-    llm = g4fAPIHandler(model="gpt-4o", cookies_dir=Config.COOKIES_DIR)
-    # llm = GroqAPIHandler(Config.GROQ_API_KEY, model="llama3-70b-8192")
+    llm_g4f = g4fAPIHandler(model="gpt-4o", cookies_dir=Config.COOKIES_DIR)
+    llm_groq = GroqAPIHandler(Config.GROQ_API_KEY, model="llama3-70b-8192")
 
     account = get_twitter_account()
     with get_db_connection() as db:
@@ -121,7 +162,14 @@ def main():
 
                 # Summarize tweets
                 logging.info("Summarizing tweets.")
-                twit = summarize_tweets(tweets, llm)
+                try:
+                    twit = summarize_tweets(tweets, llm_g4f)
+                except Exception as e:
+                    logging.error(
+                        f"Error with g4fAPIHandler: {e}. Retrying with GroqAPIHandler."
+                    )
+                    twit = summarize_tweets(tweets, llm_groq)
+
                 if not twit:
                     logging.warning(
                         "Received empty tweet from LLM. Skipping this cycle."
