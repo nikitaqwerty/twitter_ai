@@ -1,28 +1,30 @@
 import os
 from groq import Groq
 from openai import OpenAI
-
-
 import logging
 
 
 class APIHandler:
-    def __init__(self, api_key):
+    def __init__(self, api_key, model=None):
         self.api_key = api_key
+        self.model = model  # Store the model name as an instance variable
 
     def get_response(self, query):
         raise NotImplementedError("This method should be overridden by subclasses.")
 
 
 class GroqAPIHandler(APIHandler):
-    def __init__(self, api_key):
-        super().__init__(api_key)
-        self.client = Groq(api_key=api_key)
+    DEFAULT_MODEL = "llama3-70b-8192"
 
-    def get_response(self, query, model="llama3-70b-8192"):
+    def __init__(self, api_key, model=None):
+        if model is None:
+            model = self.DEFAULT_MODEL
+        super().__init__(api_key, model)
+
+    def get_response(self, query):
         try:
             chat_completion = self.client.chat.completions.create(
-                messages=[{"role": "user", "content": query}], model=model
+                messages=[{"role": "user", "content": query}], model=self.model
             )
             return chat_completion.choices[0].message.content
         except Exception as e:
@@ -31,16 +33,18 @@ class GroqAPIHandler(APIHandler):
 
 
 class OpenAIAPIHandler(APIHandler):
-    def __init__(self, api_key):
-        super().__init__(api_key)
-        self.client = OpenAI(api_key=self.api_key)
+    DEFAULT_MODEL = "gpt-3.5-turbo"
 
-    def get_response(self, query, model="gpt-3.5-turbo"):
+    def __init__(self, api_key, model=None):
+        if model is None:
+            model = self.DEFAULT_MODEL
+        super().__init__(api_key, model)
+
+    def get_response(self, query):
         try:
             response = self.client.chat.completions.create(
-                model=model,
+                model=self.model,
                 messages=[
-                    {"role": "system", "content": "You are an assistant. Be helpful."},
                     {"role": "user", "content": query},
                 ],
             )
@@ -51,7 +55,6 @@ class OpenAIAPIHandler(APIHandler):
 
 
 if __name__ == "__main__":
-    import os
     import sys
 
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

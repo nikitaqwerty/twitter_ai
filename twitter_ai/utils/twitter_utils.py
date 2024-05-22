@@ -1,4 +1,5 @@
 from twitter.scraper import Scraper
+from twitter.account import Account
 from utils.config import Config  # Import the Config class
 
 import logging
@@ -15,6 +16,14 @@ def get_twitter_scraper():
     login = Config.TWITTER_LOGIN
     password = Config.TWITTER_PASSWORD
     return Scraper(email, login, password)
+
+
+def get_twitter_account():
+    # Use Config attributes instead of os.getenv
+    email = Config.TWITTER_EMAIL
+    login = Config.TWITTER_LOGIN
+    password = Config.TWITTER_PASSWORD
+    return Account(email, login, password)
 
 
 def extract_users_and_ids(entries):
