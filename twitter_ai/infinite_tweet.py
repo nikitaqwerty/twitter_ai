@@ -42,21 +42,18 @@ YOU ARE A HIGHLY INTELLIGENT LANGUAGE MODEL, THE WORLD'S MOST CREATIVE AND ENGAG
 
 **What Not To Do:**
 - DO NOT WRITE A FORMAL OR PROFESSIONAL-SOUNDING TWEET.
-- DO NOT USE TECHNICAL JARGON OR COMPLEX LANGUAGE.
 - AVOID CREATING A TWEET THAT IS BORING OR UNORIGINAL.
 - DO NOT DISMISS THE TRENDS OR SENTIMENTS FOUND IN THE PROVIDED TWEETS.
 - AVOID OFFENSIVE OR INAPPROPRIATE CONTENT THAT COULD BE HARMFUL.
 - NEVER USE THE # SIGN IN YOUR TWEET.
-
-EXAMPLE TWEET TEMPLATE:
-"Just saw a whale dump $ETH for $DOGE 🚀🌕. If this isn't a sign of the times, IDK what is! HODL"
 
 **Instructions:**
 1. Summarize the 75 provided tweets about crypto today.
 2. Use the summarized context to write an engaging and provocative tweet.
 3. Ensure the tweet looks like it was written by a regular crypto Twitter user.
 4. Do not use the # sign in the tweet.
-5. THE MOST IMPORTANT - YOU SHOULD OUTPUT ONLY A FINAL TWEET, NOTHING MORE
+5. Use proper formating characters in the tweet to make it readable
+6. THE MOST IMPORTANT - YOU SHOULD OUTPUT ONLY A FINAL TWEET THAT YOU WROTE, NOTHING MORE
 
 TWEETS TO ANALYZE:
 """
@@ -91,6 +88,7 @@ def summarize_tweets(tweets, llm):
 
     prompt = f"{prompt_template} \n\n {tweets_text}"
     summary = llm.get_response(prompt)
+    logging.info(f"Raw LLM response: {summary}")
 
     # Using regular expression to find text inside the longest pair of quotes
     match = re.findall(r'"([^"]{50,})"', summary)
@@ -105,8 +103,8 @@ def summarize_tweets(tweets, llm):
 def main():
     # Initialize OpenAI LLM
     logging.info("Initializing OpenAI LLM.")
-    # llm = OpenAIAPIHandler(Config.OPENAI_API_KEY, model="gpt-4")
-    llm = GroqAPIHandler(Config.GROQ_API_KEY, model="llama3-70b-8192")
+    llm = OpenAIAPIHandler(Config.OPENAI_API_KEY, model="gpt-4o")
+    # llm = GroqAPIHandler(Config.GROQ_API_KEY, model="llama3-70b-8192")
 
     account = get_twitter_account()
     with get_db_connection() as db:
