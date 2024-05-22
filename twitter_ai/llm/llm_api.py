@@ -20,6 +20,7 @@ class GroqAPIHandler(APIHandler):
         if model is None:
             model = self.DEFAULT_MODEL
         super().__init__(api_key, model)
+        self.client = Groq(api_key=api_key)
 
     def get_response(self, query):
         try:
@@ -39,6 +40,7 @@ class OpenAIAPIHandler(APIHandler):
         if model is None:
             model = self.DEFAULT_MODEL
         super().__init__(api_key, model)
+        self.client = OpenAI(api_key=self.api_key)
 
     def get_response(self, query):
         try:

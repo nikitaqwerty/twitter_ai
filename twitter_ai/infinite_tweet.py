@@ -10,7 +10,8 @@ import time
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
 )
 
 CYCLE_DELAY = 60 * 60  # Base delay for the cycle in seconds
@@ -85,31 +86,45 @@ def fetch_tweets_from_db(db):
 
 
 def summarize_tweets(tweets, llm):
-    tweets = "\n=============\n".join(list([tweet[0] for tweet in tweets]))
-    print("Input: ", tweets)
+    tweets_text = "\n=============\n".join(list([tweet[0] for tweet in tweets]))
+    logging.info("Summarizing tweets for the prompt.")
 
-    summary = llm.get_response(f"{prompt_template} \n\n {tweets}")
+    summary = llm.get_response(f"{prompt_template} \n\n {tweets_text}")
 
     return summary
 
 
 def main():
+    # Initialize OpenAI LLM
+    logging.info("Initializing OpenAI LLM.")
+    llm = OpenAIAPIHandler(Config.OPENAI_API_KEY, model="gpt-4")
+
     account = get_twitter_account()
     with get_db_connection() as db:
         while True:
             try:
                 # Fetch tweets from the database
+                logging.info("Fetching tweets from the database.")
                 tweets = fetch_tweets_from_db(db)
                 if not tweets:
                     logging.info("No tweets found that match the criteria.")
-                    return
-
-                # Initialize GroqLLM
-                llm = OpenAIAPIHandler(Config.OPENAI_API_KEY, model="gpt-4o")
+                    time.sleep(60)  # Wait a bit before retrying
+                    continue
 
                 # Summarize tweets
-                twit = summarize_tweets(tweets, llm)
-                print("Output: ", twit)
+                logging.info("Summarizing tweets.")
+                twit = summarize_tweets(tweets, llm).strip()
+                if not twit:
+                    logging.warning(
+                        "Received empty tweet from LLM. Skipping this cycle."
+                    )
+                    time.sleep(60)  # Wait a bit before retrying
+                    continue
+
+                logging.info(f"Generated tweet: {twit}")
+
+                # Post tweet
+                logging.info("Posting tweet.")
                 account.tweet(twit)
 
                 logging.info("Cycle complete. Waiting for the next cycle.")
@@ -117,7 +132,7 @@ def main():
                 time.sleep(random_sleep_time)
 
             except Exception as e:
-                logging.error(f"An error occurred: {e}")
+                logging.error(f"An error occurred: {e}", exc_info=True)
                 time.sleep(60)  # Sleep for 1 minute before retrying
 
 
