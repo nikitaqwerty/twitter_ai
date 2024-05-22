@@ -10,3 +10,4 @@ t.json
 *.gif
 context.txt
 .env
+.DS_Store

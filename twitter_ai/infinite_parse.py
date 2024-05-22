@@ -75,26 +75,22 @@ def main():
                     logging.info(
                         f"No users to pull tweets. Adding new recommended users"
                     )
-                    high_score_users = get_high_score_users(db, limit_users=5)
-                    if high_score_users:
-                        user_ids = [user[0] for user in high_score_users]
-                        new_users_count = save_users_recommendations_by_ids(
-                            db, scraper, user_ids
-                        )
-                        logging.info(f"New users inserted by X rec {new_users_count}")
-                        if new_users_count == 0:
-                            user_ids = [
-                                user[0]
-                                for user in get_most_mentioned_new_users(
-                                    db, limit_users=5
-                                )
-                            ]
-                            new_users_count = process_and_insert_users(
-                                db, scraper, user_ids
-                            )
-                            logging.info(
-                                f"New users inserted by most mentioned algo {new_users_count}"
-                            )
+                    # high_score_users = get_high_score_users(db, limit_users=5)
+                    # if high_score_users:
+                    #     user_ids = [user[0] for user in high_score_users]
+                    #     new_users_count = save_users_recommendations_by_ids(
+                    #         db, scraper, user_ids
+                    #     )
+                    #     logging.info(f"New users inserted by X rec {new_users_count}")
+                    # if new_users_count == 0:
+                    user_ids = [
+                        user[0]
+                        for user in get_most_mentioned_new_users(db, limit_users=200)
+                    ]
+                    new_users_count = process_and_insert_users(db, scraper, user_ids)
+                    logging.info(
+                        f"New users inserted by most mentioned algo {new_users_count}"
+                    )
 
                 logging.info("Cycle complete. Waiting for the next cycle.")
                 random_sleep_time = random.uniform(CYCLE_DELAY * 0.5, CYCLE_DELAY * 1.5)
