@@ -1,7 +1,10 @@
 import os
 from groq import Groq
 from openai import OpenAI
-from g4f.client import Client
+from g4f.client import Client as g4fClient
+from g4f.Provider import OpenaiChat
+from g4f.cookies import set_cookies_dir, read_cookie_files
+
 import logging
 
 
@@ -60,11 +63,14 @@ class OpenAIAPIHandler(APIHandler):
 class g4fAPIHandler(APIHandler):
     DEFAULT_MODEL = "gpt-4o"
 
-    def __init__(self, api_key="", model=None):
+    def __init__(self, api_key="", model=None, cookies_dir=""):
         if model is None:
             model = self.DEFAULT_MODEL
         super().__init__(api_key, model)
-        self.client = Client()
+        if cookies_dir:
+            set_cookies_dir(cookies_dir)
+            read_cookie_files(cookies_dir)
+        self.client = g4fClient(provider=OpenaiChat)
 
     def get_response(self, query):
         try:
@@ -73,6 +79,7 @@ class g4fAPIHandler(APIHandler):
                 messages=[
                     {"role": "user", "content": query},
                 ],
+                history_disabled=True,
             )
             return response.choices[0].message.content
         except Exception as e:
@@ -94,7 +101,7 @@ if __name__ == "__main__":
     elif API_PROVIDER.lower() == "openai":
         api_handler = OpenAIAPIHandler(api_key=Config.OPENAI_API_KEY)
     elif API_PROVIDER.lower() == "g4f":
-        api_handler = g4fAPIHandler()
+        api_handler = g4fAPIHandler(cookies_dir=Config.COOKIES_DIR)
     else:
         raise ValueError("Unsupported API provider specified.")
 

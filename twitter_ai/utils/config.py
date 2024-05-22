@@ -15,3 +15,4 @@ class Config:
     DB_PASSWORD = os.getenv("DB_PASSWORD", "mypassword")
     GROQ_API_KEY = os.getenv("GROQ_API_KEY")
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+    COOKIES_DIR = os.getenv("COOKIES_DIR")
