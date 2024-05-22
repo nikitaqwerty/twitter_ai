@@ -2,7 +2,7 @@ import os
 import logging
 from utils.db_utils import get_db_connection
 from utils.config import Config
-from llm.llm_groq import GroqLLM
+from twitter_ai.llm.llm_api import GroqAPIHandler
 from datetime import datetime
 import re
 import time
@@ -13,7 +13,7 @@ logging.basicConfig(
 )
 
 # Initialize Groq LLM
-groq_llm = GroqLLM(Config.GROQ_API_KEY)
+groq_llm = GroqAPIHandler(Config.GROQ_API_KEY)
 
 # Define the prompt for Groq LLM
 prompt_template = """

@@ -2,7 +2,7 @@
 
 import unittest
 from unittest.mock import patch, MagicMock
-from llm.llm_groq import GroqLLM
+from twitter_ai.llm.llm_api import GroqAPIHandler
 
 
 class TestGroqLLM(unittest.TestCase):
@@ -16,7 +16,7 @@ class TestGroqLLM(unittest.TestCase):
         ]
         mock_client.chat.completions.create.return_value = mock_completion
 
-        groq_llm = GroqLLM(api_key="fake_api_key")
+        groq_llm = GroqAPIHandler(api_key="fake_api_key")
         response = groq_llm.get_response("Test query")
 
         self.assertEqual(response, "Test response")
@@ -26,7 +26,7 @@ class TestGroqLLM(unittest.TestCase):
         mock_client = MockGroq.return_value
         mock_client.chat.completions.create.side_effect = Exception("Test exception")
 
-        groq_llm = GroqLLM(api_key="fake_api_key")
+        groq_llm = GroqAPIHandler(api_key="fake_api_key")
         response = groq_llm.get_response("Test query")
 
         self.assertIsNone(response)

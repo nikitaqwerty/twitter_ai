@@ -1,5 +1,5 @@
 import os
-from llm.llm_groq import GroqLLM
+from twitter_ai.llm.llm_api import GroqAPIHandler
 from utils.db_utils import get_db_connection
 from utils.config import Config
 import logging
@@ -97,7 +97,7 @@ def main():
         return
 
     # Initialize GroqLLM
-    groq_llm = GroqLLM(Config.GROQ_API_KEY)
+    groq_llm = GroqAPIHandler(Config.GROQ_API_KEY)
 
     # Summarize tweets
     tweet_summary = summarize_tweets(tweets, groq_llm)
