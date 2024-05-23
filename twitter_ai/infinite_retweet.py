@@ -8,7 +8,7 @@ import time
 
 configure_logging()
 
-CYCLE_DELAY = 60 * 60  # Base delay for the cycle in seconds
+CYCLE_DELAY = 60 * 30  # Base delay for the cycle in seconds
 
 
 def fetch_tweets_for_retweet(db):
@@ -22,11 +22,9 @@ def fetch_tweets_for_retweet(db):
             LEFT JOIN actions ON tweets.tweet_id = actions.tweet_id
             WHERE 
                 (tweets.retweeted_tweet IS NULL OR tweets.retweeted_tweet = '{}'::jsonb) 
-                AND length(tweets.tweet_text) > 50
                 AND users.llm_check_score > 8
-                AND users.followers_count > 600 
-                AND users.followers_count < 3000
-                AND users.friends_count / users.followers_count > 0.99
+                AND users.followers_count < 10000
+                and users.friends_count > 1000
                 AND tweets.created_at > NOW() - INTERVAL '24 HOURS'
                 AND tweets.tweet_text !~* '(retweet|reply|comment)'
                 AND tweets.lang = 'en'
@@ -73,16 +71,42 @@ def main():
                     continue
 
                 for tweet in tweets:
-                    tweet_id, target_user_id = tweet
-                    retweet_response = retweet_tweet(account, tweet_id)
+                    target_tweet_id, target_user_id = tweet
+                    retweet_response = retweet_tweet(account, target_tweet_id)
+                    account.like(target_tweet_id)
+                    account.follow(target_user_id)
                     if retweet_response:
-                        logging.info(f"Successfully retweeted tweet ID: {tweet_id}")
+                        logging.info(
+                            f"Successfully retweeted tweet ID: {target_tweet_id}"
+                        )
                         insert_action(
                             db,
                             account.id,
                             "retweet",
                             retweet_response["rest_id"],
-                            tweet_id,
+                            target_tweet_id,
+                            target_user_id,
+                            None,
+                            None,
+                            None,
+                        )
+                        insert_action(
+                            db,
+                            account.id,
+                            "like",
+                            None,
+                            target_tweet_id,
+                            target_user_id,
+                            None,
+                            None,
+                            None,
+                        )
+                        insert_action(
+                            db,
+                            account.id,
+                            "follow",
+                            None,
+                            None,
                             target_user_id,
                             None,
                             None,
