@@ -1,0 +1,110 @@
+import logging
+from utils.config import Config
+from utils.db_utils import get_db_connection, insert_action
+from utils.twitter_utils import get_twitter_account
+from datetime import datetime
+import random
+import time
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
+
+CYCLE_DELAY = 60 * 60  # Base delay for the cycle in seconds
+
+
+def fetch_tweets_for_retweet(db):
+    query = """
+        WITH top_tweets AS (
+            SELECT 
+                tweets.tweet_id,
+                users.rest_id
+            FROM tweets
+            JOIN users ON tweets.user_id = users.rest_id
+            LEFT JOIN actions ON tweets.tweet_id = actions.tweet_id
+            WHERE 
+                (tweets.retweeted_tweet IS NULL OR tweets.retweeted_tweet = '{}'::jsonb) 
+                AND length(tweets.tweet_text) > 50
+                AND users.llm_check_score > 8
+                AND users.followers_count > 600 
+                AND users.followers_count < 3000
+                AND users.friends_count / users.followers_count > 0.99
+                AND tweets.created_at > NOW() - INTERVAL '24 HOURS'
+                AND tweets.tweet_text !~* '(retweet|reply|comment)'
+                AND tweets.lang = 'en'
+                AND actions.tweet_id IS NULL
+            ORDER BY tweets.views DESC
+            LIMIT 10
+        )
+        SELECT tweet_id, rest_id
+        FROM top_tweets
+        WHERE rest_id NOT IN (
+            SELECT target_user_id 
+            FROM actions 
+            WHERE action_type = 'retweet'
+        )
+        ORDER BY random()
+        LIMIT 1;
+    """
+    return db.run_query(query)
+
+
+def retweet_tweet(account, tweet_id):
+    try:
+        logging.info(f"Retweeting tweet ID: {tweet_id}")
+        resp = account.retweet(tweet_id)
+        return resp["data"]["create_retweet"]["retweet_results"]["result"]
+    except Exception as e:
+        logging.error(f"Error retweeting tweet ID {tweet_id}: {e}")
+        return None
+
+
+def main():
+    logging.info("Initializing Twitter account.")
+    account = get_twitter_account()
+
+    with get_db_connection() as db:
+        while True:
+            try:
+                # Fetch tweets from the database
+                logging.info("Fetching tweets from the database for retweeting.")
+                tweets = fetch_tweets_for_retweet(db)
+                if not tweets:
+                    logging.info("No tweets found that match the criteria.")
+                    time.sleep(60)  # Wait a bit before retrying
+                    continue
+
+                for tweet in tweets:
+                    tweet_id, target_user_id = tweet
+                    retweet_response = retweet_tweet(account, tweet_id)
+                    if retweet_response:
+                        logging.info(f"Successfully retweeted tweet ID: {tweet_id}")
+                        insert_action(
+                            db,
+                            account.id,
+                            "retweet",
+                            retweet_response["rest_id"],
+                            tweet_id,
+                            target_user_id,
+                            None,
+                            None,
+                            None,
+                        )
+
+                logging.info("Cycle complete. Waiting for the next cycle.")
+                random_sleep_time = random.uniform(CYCLE_DELAY * 0.5, CYCLE_DELAY * 1.5)
+                time.sleep(random_sleep_time)
+
+            except Exception as e:
+                logging.error(f"An error occurred: {e}", exc_info=True)
+                time.sleep(60)  # Sleep for 1 minute before retrying
+
+
+if __name__ == "__main__":
+    main()
+
+
+if __name__ == "__main__":
+    main()
