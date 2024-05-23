@@ -5,7 +5,7 @@ import os
 
 # Ensure that the path to the utilities and other dependencies is available
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils.db_utils import insert_tweet
+from utils.db_utils import insert_tweets
 
 
 class TestInsertTweet(unittest.TestCase):
@@ -68,7 +68,7 @@ class TestInsertTweet(unittest.TestCase):
         ]
 
         # Call function
-        insert_tweet(mock_db_instance, self.tweet_data)
+        insert_tweets(mock_db_instance, self.tweet_data)
 
         # Verify it was called
         mock_db_instance.run_query.assert_called_once()

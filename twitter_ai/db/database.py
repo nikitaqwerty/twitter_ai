@@ -54,6 +54,17 @@ class Database:
 
         return self.cursor.rowcount
 
+    def run_insert_query(self, query, params_list):
+        if not isinstance(params_list[0], tuple):
+            params_list = [params_list]
+        if self.cursor is None:
+            raise AttributeError(
+                "Cursor is not initialized. Check the database connection."
+            )
+        self.cursor.executemany(query, params_list)
+        self.connection.commit()
+        return self.cursor.rowcount
+
     def close(self):
         if self.cursor:
             self.cursor.close()

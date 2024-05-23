@@ -3,8 +3,7 @@ from twitter.util import init_session
 from utils.twitter_utils import extract_users_and_ids, get_twitter_scraper
 from utils.db_utils import (
     get_db_connection,
-    insert_user,
-    insert_users_bulk,
+    insert_users,
     insert_user_recommendations,
     update_user_recommendations_status,
 )
@@ -29,7 +28,7 @@ def main():
     user_id = user_object["rest_id"]
 
     with get_db_connection() as db:
-        insert_user(db, user_object)
+        insert_users(db, user_object)
 
         recommended_users = scraper.recommended_users([user_id])
 
@@ -46,18 +45,13 @@ def main():
 
             users, rest_ids = extract_users_and_ids(user_chunk_processed)
 
-            insert_users_query, users_params = insert_users_bulk(users)
-            db.run_batch_query(insert_users_query, users_params)
+            inserted_user_count = insert_users(db, users)
 
-            insert_recommendations_query, recommendations_params = (
-                insert_user_recommendations(user_id, rest_ids)
+            inserted_recommendations_count = insert_user_recommendations(
+                db, user_id, rest_ids
             )
-            db.run_batch_query(insert_recommendations_query, recommendations_params)
 
-            update_status_query, status_params = update_user_recommendations_status(
-                user_id
-            )
-            db.run_query(update_status_query, status_params)
+            update_user_recommendations_status(db, user_id)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 import logging
 from utils.config import Config
-from utils.db_utils import get_db_connection, insert_action, insert_tweet
+from utils.db_utils import get_db_connection, insert_action, insert_tweets
 from utils.twitter_utils import get_twitter_account
 from llm.llm_api import OpenAIAPIHandler, GroqAPIHandler, g4fAPIHandler
 from datetime import datetime
@@ -146,7 +146,7 @@ def main():
                 logging.info("Posting tweet.")
                 resp = account.tweet(twit)
                 tweet_results = resp["data"]["create_tweet"]["tweet_results"]["result"]
-                insert_tweet(db, tweet_results)
+                insert_tweets(db, tweet_results)
                 insert_action(
                     db,
                     account.id,

@@ -6,8 +6,8 @@ import time
 
 from utils.twitter_utils import extract_users_and_ids
 from utils.db_utils import (
-    insert_tweet,
-    insert_users_bulk,
+    insert_tweets,
+    insert_users,
     insert_user_recommendations,
     update_user_recommendations_status,
 )
@@ -36,8 +36,7 @@ def process_and_insert_users(db, scraper, user_ids):
         return 0
 
     # Insert user data into the database
-    insert_users_query, users_params = insert_users_bulk(users)
-    inserted_users = db.run_batch_query(insert_users_query, users_params)
+    inserted_users = insert_users(db, users)
 
     # Return the number of inserted users
     return inserted_users
@@ -53,19 +52,16 @@ def save_users_recommendations_by_ids(db, scraper, user_ids):
         ][2]["entries"]
         users, rest_ids = extract_users_and_ids(entries)
 
-        insert_users_query, users_params = insert_users_bulk(users)
-        inserted_users = db.run_batch_query(insert_users_query, users_params)
+        inserted_users = insert_users(db, users)
 
         if inserted_users:
             new_users_count += len(inserted_users)
 
-        insert_recommendations_query, recommendations_params = (
-            insert_user_recommendations(user_id, rest_ids)
+        inserted_recommendations_count = insert_user_recommendations(
+            db, user_id, rest_ids
         )
-        db.run_batch_query(insert_recommendations_query, recommendations_params)
 
-        update_status_query, status_params = update_user_recommendations_status(user_id)
-        db.run_query(update_status_query, status_params)
+        update_user_recommendations_status(db, user_id)
 
     return new_users_count
 
@@ -100,9 +96,9 @@ def save_tweets_to_db(db, all_pages):
                                     "tweet_results"
                                 ]["result"]
                                 if "rest_id" in tweet_results:
-                                    insert_tweet(db, tweet_results)
+                                    insert_tweets(db, tweet_results)
                                 elif "tweet" in tweet_results:
-                                    insert_tweet(db, tweet_results["tweet"])
+                                    insert_tweets(db, tweet_results["tweet"])
                                 else:
                                     logging.error(
                                         f"{Fore.RED}rest_id not in tweet data: {entry}{Style.RESET_ALL}"

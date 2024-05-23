@@ -5,9 +5,8 @@ import traceback
 from twitter.scraper import Scraper
 from utils.db_utils import (
     get_db_connection,
-    insert_tweet,
+    insert_tweets,
     update_user_tweets_status,
-    create_all_tables,
 )
 from utils.twitter_utils import get_twitter_scraper
 from utils.common_utils import save_tweets_to_db, fetch_tweets_for_users
