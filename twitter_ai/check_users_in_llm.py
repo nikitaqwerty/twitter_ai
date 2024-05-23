@@ -91,9 +91,9 @@ def update_llm_check_score(db, user_id, score):
 
 
 def main():
-    while True:
-        try:
-            with get_db_connection() as db:
+    with get_db_connection() as db:
+        while True:
+            try:
                 users = fetch_users_from_db()
                 for user in users:
                     user_id = user[0]
@@ -110,11 +110,11 @@ def main():
                     update_llm_check_score(db, user_id, score)
                     logging.info(f"Updated LLM check score for user: {user_id}")
 
-            time.sleep(300)  # Sleep for 5 minutes before checking again
+                time.sleep(300)  # Sleep for 5 minutes before checking again
 
-        except Exception as e:
-            logging.error(f"An error occurred: {e}")
-            time.sleep(60)  # Sleep for 1 minute before retrying
+            except Exception as e:
+                logging.error(f"An error occurred: {e}")
+                time.sleep(60)  # Sleep for 1 minute before retrying
 
 
 if __name__ == "__main__":

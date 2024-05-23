@@ -238,6 +238,7 @@ def insert_users(db, user_results):
         params_list.append(params)
 
     db.run_insert_query(query, params_list)
+    return db.cursor.rowcount
 
 
 def insert_tweets(db, tweet_results_list):
@@ -327,6 +328,7 @@ def insert_tweets(db, tweet_results_list):
         params_list.append(params)
 
     db.run_insert_query(query, params_list)
+    return db.cursor.rowcount
 
 
 def insert_user_recommendations(db, rest_id, recommended_user_ids):
