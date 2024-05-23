@@ -15,11 +15,9 @@ from utils.common_utils import (
     save_users_recommendations_by_ids,
     process_and_insert_users,
 )
+from utils.config import configure_logging
 
-# Initialize logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+configure_logging()
 
 USERS_PER_BATCH = 5
 PAGES_PER_USER = 1

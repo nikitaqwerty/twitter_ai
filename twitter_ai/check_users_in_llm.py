@@ -1,16 +1,12 @@
-import os
 import logging
 from utils.db_utils import get_db_connection
-from utils.config import Config
+from utils.config import Config, configure_logging
 from llm.llm_api import GroqAPIHandler
 from datetime import datetime
 import re
 import time
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+configure_logging()
 
 # Initialize Groq LLM
 groq_llm = GroqAPIHandler(Config.GROQ_API_KEY)
@@ -55,14 +51,21 @@ def analyze_tweets_with_llm(tweets, max_retries=5, backoff_factor=1):
 
     retries = 0
     while retries < max_retries:
-        response = groq_llm.get_response(prompt)
-        if response:
-            break
-        else:
+        try:
+            response = groq_llm.get_response(prompt)
+            if response:
+                break
+            else:
+                wait_time = backoff_factor * (2**retries)
+                logging.error(
+                    f"Error fetching LLM response. Retrying in {wait_time} seconds..."
+                )
+                time.sleep(wait_time)
+                retries += 1
+        except Exception as e:
+            logging.error(f"Exception during LLM API call: {e}")
             wait_time = backoff_factor * (2**retries)
-            logging.error(
-                f"Error fetching LLM response. Retrying in {wait_time} seconds..."
-            )
+            logging.error(f"Retrying in {wait_time} seconds...")
             time.sleep(wait_time)
             retries += 1
 
@@ -94,7 +97,13 @@ def main():
     with get_db_connection() as db:
         while True:
             try:
+                logging.info("Fetching users from the database")
                 users = fetch_users_from_db()
+                if not users:
+                    logging.info("No users found needing LLM check")
+                    time.sleep(300)
+                    continue
+
                 for user in users:
                     user_id = user[0]
                     logging.info(f"Processing user: {user_id}")
@@ -104,16 +113,21 @@ def main():
                         logging.info(f"No tweets found for user: {user_id}")
                         continue
 
-                    score = analyze_tweets_with_llm(tweets)
-                    logging.info(f"User {user_id} LLM check score: {score}")
+                    try:
+                        score = analyze_tweets_with_llm(tweets)
+                        logging.info(f"User {user_id} LLM check score: {score}")
+                        update_llm_check_score(db, user_id, score)
+                        logging.info(f"Updated LLM check score for user: {user_id}")
+                    except Exception as e:
+                        logging.error(
+                            f"Failed to analyze tweets for user {user_id}: {e}"
+                        )
 
-                    update_llm_check_score(db, user_id, score)
-                    logging.info(f"Updated LLM check score for user: {user_id}")
-
+                logging.info("Sleeping for 5 minutes before next cycle")
                 time.sleep(300)  # Sleep for 5 minutes before checking again
 
             except Exception as e:
-                logging.error(f"An error occurred: {e}")
+                logging.error(f"An error occurred in the main loop: {e}")
                 time.sleep(60)  # Sleep for 1 minute before retrying
 
 

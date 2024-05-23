@@ -1,5 +1,5 @@
 import logging
-from utils.config import Config
+from utils.config import Config, configure_logging
 from utils.db_utils import get_db_connection, insert_action, insert_tweets
 from utils.twitter_utils import get_twitter_account, get_twitter_scraper
 from utils.common_utils import process_and_insert_users
@@ -9,11 +9,7 @@ import random
 import time
 import re
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-)
+configure_logging()
 
 CYCLE_DELAY = 60 * 60  # Base delay for the cycle in seconds
 

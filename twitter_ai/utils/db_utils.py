@@ -2,6 +2,9 @@ import os
 import json
 import datetime
 from db.database import Database
+from utils.config import configure_logging
+
+configure_logging()
 
 
 def get_db_connection():

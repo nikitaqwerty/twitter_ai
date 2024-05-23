@@ -91,9 +91,10 @@ if __name__ == "__main__":
     import sys
 
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from utils.config import Config
+    from utils.config import Config, configure_logging
 
-    logging.basicConfig(level=logging.INFO)
+    configure_logging()
+
     API_PROVIDER = "g4f"
     # Select API based on configuration
     if API_PROVIDER.lower() == "groq":
