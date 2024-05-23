@@ -85,22 +85,36 @@ def fetch_tweets_from_db(db):
     return db.run_query(query)
 
 
+def extract_final_tweet(initial_response, llm):
+    logging.info("Extracting the final twee.")
+
+    extraction_prompt = f"""
+    You will receive an initial response from another LLM that was asked to write a tweet. Your task is to extract and return only the final tweet from the response, ignoring any other content, labels, quotes or comments. 
+
+    Initial Response:
+    {initial_response}
+
+    Now please provide only the final tweet and stop speaking.
+    """
+
+    final_tweet_response = llm.get_response(extraction_prompt)
+
+    # Assuming the final response is clean and does not contain extra text
+    return final_tweet_response.strip()
+
+
 def summarize_tweets(tweets, llm):
     tweets_text = "\n=============\n".join([tweet[0] for tweet in tweets])
     logging.info("Summarizing tweets for the prompt.")
 
     prompt = f"{prompt_template} \n\n {tweets_text}"
-    raw_llm_output = llm.get_response(prompt)
-    logging.info(f"Raw LLM response: {raw_llm_output}")
+    initial_llm_response = llm.get_response(prompt)
+    logging.info(f"Raw LLM response: {initial_llm_response}")
 
-    # Using regular expression to find text inside the longest pair of quotes
-    match = re.findall(r'"([^"]{50,})"', raw_llm_output)
-    if match:
-        return raw_llm_output, max(
-            match, key=len
-        )  # Select the longest string if multiple matches found
+    final_tweet = extract_final_tweet(initial_llm_response, llm)
+    logging.info(f"Extracted final tweet: {final_tweet}")
 
-    return (raw_llm_output, raw_llm_output)
+    return initial_llm_response, final_tweet
 
 
 def main():
