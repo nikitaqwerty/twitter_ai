@@ -173,7 +173,28 @@ def insert_user(db, user_result):
             is_translator, verified, professional_type, category, tweets_parsed, tweets_parsed_last_timestamp,
             recommendations_pulled, recommendations_pulled_last_timestamp
         ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ON CONFLICT (rest_id) DO NOTHING;
+        ON CONFLICT (rest_id) DO UPDATE SET
+            username = EXCLUDED.username,
+            name = EXCLUDED.name,
+            profile_image_url_https = EXCLUDED.profile_image_url_https,
+            profile_banner_url = EXCLUDED.profile_banner_url,
+            description = EXCLUDED.description,
+            location = EXCLUDED.location,
+            followers_count = EXCLUDED.followers_count,
+            friends_count = EXCLUDED.friends_count,
+            favourites_count = EXCLUDED.favourites_count,
+            statuses_count = EXCLUDED.statuses_count,
+            created_at = EXCLUDED.created_at,
+            is_blue_verified = EXCLUDED.is_blue_verified,
+            is_translator = EXCLUDED.is_translator,
+            verified = EXCLUDED.verified,
+            professional_type = EXCLUDED.professional_type,
+            category = EXCLUDED.category,
+            tweets_parsed = EXCLUDED.tweets_parsed,
+            tweets_parsed_last_timestamp = EXCLUDED.tweets_parsed_last_timestamp,
+            recommendations_pulled = EXCLUDED.recommendations_pulled,
+            recommendations_pulled_last_timestamp = EXCLUDED.recommendations_pulled_last_timestamp,
+            lastmodified = CURRENT_TIMESTAMP;
     """
     legacy = user_result.get("legacy", {})
     professional = user_result.get("professional", {})
@@ -220,7 +241,28 @@ def insert_users_bulk(user_results):
             is_translator, verified, professional_type, category, tweets_parsed, tweets_parsed_last_timestamp,
             recommendations_pulled, recommendations_pulled_last_timestamp
         ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ON CONFLICT (rest_id) DO NOTHING
+        ON CONFLICT (rest_id) DO UPDATE SET
+            username = EXCLUDED.username,
+            name = EXCLUDED.name,
+            profile_image_url_https = EXCLUDED.profile_image_url_https,
+            profile_banner_url = EXCLUDED.profile_banner_url,
+            description = EXCLUDED.description,
+            location = EXCLUDED.location,
+            followers_count = EXCLUDED.followers_count,
+            friends_count = EXCLUDED.friends_count,
+            favourites_count = EXCLUDED.favourites_count,
+            statuses_count = EXCLUDED.statuses_count,
+            created_at = EXCLUDED.created_at,
+            is_blue_verified = EXCLUDED.is_blue_verified,
+            is_translator = EXCLUDED.is_translator,
+            verified = EXCLUDED.verified,
+            professional_type = EXCLUDED.professional_type,
+            category = EXCLUDED.category,
+            tweets_parsed = EXCLUDED.tweets_parsed,
+            tweets_parsed_last_timestamp = EXCLUDED.tweets_parsed_last_timestamp,
+            recommendations_pulled = EXCLUDED.recommendations_pulled,
+            recommendations_pulled_last_timestamp = EXCLUDED.recommendations_pulled_last_timestamp,
+            lastmodified = CURRENT_TIMESTAMP;
     """
     params_list = []
     for user_result in user_results:
@@ -269,7 +311,33 @@ def insert_tweet(db, tweet_results):
             has_user_mentions, users_mentioned, has_urls, has_hashtags, has_symbols, symbols, user_id,
             possibly_sensitive, lang, source, media_urls, media_types, media_sizes, retweeted_tweet, quoted_tweet, card
         ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ON CONFLICT (tweet_id) DO NOTHING;
+        ON CONFLICT (tweet_id) DO UPDATE SET
+            tweet_text = EXCLUDED.tweet_text,
+            likes = EXCLUDED.likes,
+            retweets = EXCLUDED.retweets,
+            replies = EXCLUDED.replies,
+            quotes = EXCLUDED.quotes,
+            bookmarks = EXCLUDED.bookmarks,
+            created_at = EXCLUDED.created_at,
+            views = EXCLUDED.views,
+            has_media = EXCLUDED.has_media,
+            has_user_mentions = EXCLUDED.has_user_mentions,
+            users_mentioned = EXCLUDED.users_mentioned,
+            has_urls = EXCLUDED.has_urls,
+            has_hashtags = EXCLUDED.has_hashtags,
+            has_symbols = EXCLUDED.has_symbols,
+            symbols = EXCLUDED.symbols,
+            user_id = EXCLUDED.user_id,
+            possibly_sensitive = EXCLUDED.possibly_sensitive,
+            lang = EXCLUDED.lang,
+            source = EXCLUDED.source,
+            media_urls = EXCLUDED.media_urls,
+            media_types = EXCLUDED.media_types,
+            media_sizes = EXCLUDED.media_sizes,
+            retweeted_tweet = EXCLUDED.retweeted_tweet,
+            quoted_tweet = EXCLUDED.quoted_tweet,
+            card = EXCLUDED.card,
+            lastmodified = CURRENT_TIMESTAMP;
     """
     legacy = tweet_results["legacy"]
     media_entities = legacy.get("extended_entities", {}).get("media", [])
@@ -322,7 +390,33 @@ def insert_tweets_bulk(db, tweet_results_list):
             has_user_mentions, users_mentioned, has_urls, has_hashtags, has_symbols, symbols, user_id,
             possibly_sensitive, lang, source, media_urls, media_types, media_sizes, retweeted_tweet, quoted_tweet, card
         ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ON CONFLICT (tweet_id) DO NOTHING;
+        ON CONFLICT (tweet_id) DO UPDATE SET
+            tweet_text = EXCLUDED.tweet_text,
+            likes = EXCLUDED.likes,
+            retweets = EXCLUDED.retweets,
+            replies = EXCLUDED.replies,
+            quotes = EXCLUDED.quotes,
+            bookmarks = EXCLUDED.bookmarks,
+            created_at = EXCLUDED.created_at,
+            views = EXCLUDED.views,
+            has_media = EXCLUDED.has_media,
+            has_user_mentions = EXCLUDED.has_user_mentions,
+            users_mentioned = EXCLUDED.users_mentioned,
+            has_urls = EXCLUDED.has_urls,
+            has_hashtags = EXCLUDED.has_hashtags,
+            has_symbols = EXCLUDED.has_symbols,
+            symbols = EXCLUDED.symbols,
+            user_id = EXCLUDED.user_id,
+            possibly_sensitive = EXCLUDED.possibly_sensitive,
+            lang = EXCLUDED.lang,
+            source = EXCLUDED.source,
+            media_urls = EXCLUDED.media_urls,
+            media_types = EXCLUDED.media_types,
+            media_sizes = EXCLUDED.media_sizes,
+            retweeted_tweet = EXCLUDED.retweeted_tweet,
+            quoted_tweet = EXCLUDED.quoted_tweet,
+            card = EXCLUDED.card,
+            lastmodified = CURRENT_TIMESTAMP;
     """
     params_list = []
     for tweet_results in tweet_results_list:
