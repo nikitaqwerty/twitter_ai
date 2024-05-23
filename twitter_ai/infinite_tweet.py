@@ -1,6 +1,6 @@
 import logging
 from utils.config import Config
-from utils.db_utils import get_db_connection
+from utils.db_utils import get_db_connection, insert_action, insert_tweet
 from utils.twitter_utils import get_twitter_account
 from llm.llm_api import OpenAIAPIHandler, GroqAPIHandler, g4fAPIHandler
 from datetime import datetime
@@ -89,17 +89,17 @@ def summarize_tweets(tweets, llm):
     logging.info("Summarizing tweets for the prompt.")
 
     prompt = f"{prompt_template} \n\n {tweets_text}"
-    summary = llm.get_response(prompt)
-    logging.info(f"Raw LLM response: {summary}")
+    raw_llm_output = llm.get_response(prompt)
+    logging.info(f"Raw LLM response: {raw_llm_output}")
 
     # Using regular expression to find text inside the longest pair of quotes
-    match = re.findall(r'"([^"]{50,})"', summary)
+    match = re.findall(r'"([^"]{50,})"', raw_llm_output)
     if match:
-        summary = max(
+        return raw_llm_output, max(
             match, key=len
         )  # Select the longest string if multiple matches found
 
-    return summary
+    return (raw_llm_output, raw_llm_output)
 
 
 def main():
@@ -123,13 +123,15 @@ def main():
 
                 # Summarize tweets
                 logging.info("Summarizing tweets.")
+                llm = llm_g4f
                 try:
-                    twit = summarize_tweets(tweets, llm_g4f)
+                    raw_output, twit = summarize_tweets(tweets, llm)
                 except Exception as e:
                     logging.error(
                         f"Error with g4fAPIHandler: {e}. Retrying with GroqAPIHandler."
                     )
-                    twit = summarize_tweets(tweets, llm_groq)
+                    llm = llm_groq
+                    raw_output, twit = summarize_tweets(tweets, llm)
 
                 if not twit:
                     logging.warning(
@@ -142,7 +144,20 @@ def main():
 
                 # Post tweet
                 logging.info("Posting tweet.")
-                account.tweet(twit)
+                resp = account.tweet(twit)
+                tweet_results = resp["data"]["create_tweet"]["tweet_results"]["result"]
+                insert_tweet(db, tweet_results)
+                insert_action(
+                    db,
+                    account.id,
+                    "tweet",
+                    tweet_results["rest_id"],
+                    None,
+                    None,
+                    raw_output,
+                    llm.model,
+                    prompt_template,
+                )
 
                 logging.info("Cycle complete. Waiting for the next cycle.")
                 random_sleep_time = random.uniform(CYCLE_DELAY * 0.5, CYCLE_DELAY * 1.5)

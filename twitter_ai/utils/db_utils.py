@@ -105,7 +105,7 @@ def create_actions_table(db):
             tweet_id VARCHAR(255),
             target_tweet_id VARCHAR(255),
             target_user_id VARCHAR(255),
-            text TEXT,
+            llm_raw_text TEXT,
             llm_model VARCHAR(255),
             llm_prompt TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -143,13 +143,13 @@ def insert_action(
     tweet_id=None,
     target_tweet_id=None,
     target_user_id=None,
-    text=None,
+    llm_raw_text=None,
     llm_model=None,
     llm_prompt=None,
 ):
     query = """
         INSERT INTO actions (
-            action_account_id, action_type, tweet_id, target_tweet_id, target_user_id, text, llm_model, llm_prompt
+            action_account_id, action_type, tweet_id, target_tweet_id, target_user_id, llm_raw_text, llm_model, llm_prompt
         ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
     """
     params = (
@@ -158,7 +158,7 @@ def insert_action(
         tweet_id,
         target_tweet_id,
         target_user_id,
-        text,
+        llm_raw_text,
         llm_model,
         llm_prompt,
     )
