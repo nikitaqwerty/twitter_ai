@@ -1,5 +1,5 @@
 import logging
-from colorama import init, Fore, Style
+from colorama import Fore, Style
 import time
 
 # common_utils.py
