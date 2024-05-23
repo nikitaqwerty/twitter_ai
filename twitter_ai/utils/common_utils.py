@@ -15,6 +15,8 @@ from utils.db_utils import (
 
 def process_and_insert_users(db, scraper, user_ids):
     # Fetch user data from Twitter API
+    if not isinstance(user_ids, list):
+        user_ids = [user_ids]
     users_data = scraper.users_by_ids(user_ids)
 
     if not users_data:

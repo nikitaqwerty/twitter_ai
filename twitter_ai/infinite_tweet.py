@@ -1,7 +1,8 @@
 import logging
 from utils.config import Config
 from utils.db_utils import get_db_connection, insert_action, insert_tweets
-from utils.twitter_utils import get_twitter_account
+from utils.twitter_utils import get_twitter_account, get_twitter_scraper
+from utils.common_utils import process_and_insert_users
 from llm.llm_api import OpenAIAPIHandler, GroqAPIHandler, g4fAPIHandler
 from datetime import datetime
 import random
@@ -106,11 +107,15 @@ def main():
     # Initialize OpenAI LLM
     logging.info("Initializing OpenAI LLM.")
     # llm = OpenAIAPIHandler(Config.OPENAI_API_KEY, model="gpt-4o")
-    llm_g4f = g4fAPIHandler(model="gpt-4o", cookies_dir=Config.COOKIES_DIR)
+    llm_g4f = g4fAPIHandler(model="gpt-4", cookies_dir=Config.COOKIES_DIR)
     llm_groq = GroqAPIHandler(Config.GROQ_API_KEY, model="llama3-70b-8192")
 
     account = get_twitter_account()
+    scraper = get_twitter_scraper()
+
     with get_db_connection() as db:
+
+        process_and_insert_users(db, scraper, account.id)
         while True:
             try:
                 # Fetch tweets from the database
