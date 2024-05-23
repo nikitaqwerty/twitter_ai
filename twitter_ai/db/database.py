@@ -1,5 +1,4 @@
 import psycopg2
-from contextlib import contextmanager
 
 
 class Database:

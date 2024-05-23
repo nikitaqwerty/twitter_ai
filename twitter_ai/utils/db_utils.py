@@ -1,7 +1,6 @@
 import os
 import json
 import datetime
-from contextlib import contextmanager
 from db.database import Database
 
 
@@ -97,15 +96,37 @@ def create_user_recommendations_table(db):
     db.run_query(query)
 
 
+def create_actions_table(db):
+    query = """
+        CREATE TABLE IF NOT EXISTS actions (
+            action_id SERIAL PRIMARY KEY,
+            action_account_id VARCHAR(255) NOT NULL,
+            action_type VARCHAR(50) NOT NULL CHECK (action_type IN ('like', 'tweet', 'retweet', 'reply', 'quote', 'follow')),
+            tweet_id VARCHAR(255),
+            target_tweet_id VARCHAR(255),
+            target_user_id VARCHAR(255),
+            text TEXT,
+            llm_model VARCHAR(255),
+            llm_prompt TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (target_tweet_id) REFERENCES tweets(tweet_id) ON DELETE CASCADE,
+            FOREIGN KEY (target_user_id) REFERENCES users(rest_id) ON DELETE CASCADE
+        );
+    """
+    db.run_query(query)
+
+
 def create_all_tables(db):
     create_users_table(db)
     create_tweets_table(db)
     create_user_recommendations_table(db)
+    create_actions_table(db)
     print("All tables created successfully.")
 
 
 def drop_all_tables(db):
     drop_queries = [
+        "DROP TABLE IF EXISTS actions CASCADE;",
         "DROP TABLE IF EXISTS tweets CASCADE;",
         "DROP TABLE IF EXISTS user_recommendations CASCADE;",
         "DROP TABLE IF EXISTS users CASCADE;",
@@ -113,6 +134,35 @@ def drop_all_tables(db):
     for query in drop_queries:
         db.run_query(query)
         print(f"Successfully dropped table: {query}")
+
+
+def insert_action(
+    db,
+    action_account_id,
+    action_type,
+    tweet_id=None,
+    target_tweet_id=None,
+    target_user_id=None,
+    text=None,
+    llm_model=None,
+    llm_prompt=None,
+):
+    query = """
+        INSERT INTO actions (
+            action_account_id, action_type, tweet_id, target_tweet_id, target_user_id, text, llm_model, llm_prompt
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
+    """
+    params = (
+        action_account_id,
+        action_type,
+        tweet_id,
+        target_tweet_id,
+        target_user_id,
+        text,
+        llm_model,
+        llm_prompt,
+    )
+    db.run_query(query, params)
 
 
 def insert_user(db, user_result):
