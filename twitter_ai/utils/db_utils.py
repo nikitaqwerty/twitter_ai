@@ -190,10 +190,6 @@ def insert_users(db, user_results):
             verified = EXCLUDED.verified,
             professional_type = EXCLUDED.professional_type,
             category = EXCLUDED.category,
-            tweets_parsed = EXCLUDED.tweets_parsed,
-            tweets_parsed_last_timestamp = EXCLUDED.tweets_parsed_last_timestamp,
-            recommendations_pulled = EXCLUDED.recommendations_pulled,
-            recommendations_pulled_last_timestamp = EXCLUDED.recommendations_pulled_last_timestamp,
             lastmodified = CURRENT_TIMESTAMP;
     """
     if not isinstance(user_results, list):

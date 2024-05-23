@@ -107,7 +107,7 @@ def main():
     # Initialize OpenAI LLM
     logging.info("Initializing OpenAI LLM.")
     # llm = OpenAIAPIHandler(Config.OPENAI_API_KEY, model="gpt-4o")
-    llm_g4f = g4fAPIHandler(model="gpt-4", cookies_dir=Config.COOKIES_DIR)
+    llm_g4f = g4fAPIHandler(model="gpt-4o", cookies_dir=Config.COOKIES_DIR)
     llm_groq = GroqAPIHandler(Config.GROQ_API_KEY, model="llama3-70b-8192")
 
     account = get_twitter_account()
