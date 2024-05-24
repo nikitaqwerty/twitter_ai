@@ -18,9 +18,10 @@ logging.basicConfig(
 )
 
 
-def get_twitter_scraper():
+def get_twitter_scraper(force_login=False):
     try:
-        # Try to resume session using cookies
+        if force_login:
+            raise Exception("Forced login to refresh cookies.")
         scraper = Scraper(cookies="rndm_world.cookies")
         logging.info("Loaded scraper from cookies.")
     except Exception as e:
@@ -35,14 +36,14 @@ def get_twitter_scraper():
     return scraper
 
 
-def get_twitter_account():
+def get_twitter_account(force_login=False):
     try:
-        # Try to resume session using cookies
+        if force_login:
+            raise Exception("Forced login to refresh cookies.")
         account = Account(cookies="rndm_world.cookies")
         logging.info("Loaded account from cookies.")
     except Exception as e:
         logging.error(f"Failed to load account from cookies: {e}")
-        # If an error occurs, login using credentials
         email = Config.TWITTER_EMAIL
         login = Config.TWITTER_LOGIN
         password = Config.TWITTER_PASSWORD
