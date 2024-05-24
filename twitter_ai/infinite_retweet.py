@@ -8,7 +8,7 @@ import time
 
 configure_logging()
 
-CYCLE_DELAY = 60 * 30  # Base delay for the cycle in seconds
+CYCLE_DELAY = 60 * 45  # Base delay for the cycle in seconds
 
 
 def fetch_tweets_for_retweet(db):
@@ -73,7 +73,13 @@ def main():
                 for tweet in tweets:
                     target_tweet_id, target_user_id = tweet
                     retweet_response = retweet_tweet(account, target_tweet_id)
+                    random_sleep_time = random.uniform(3, 6)
+                    time.sleep(random_sleep_time)
+
                     account.like(target_tweet_id)
+                    random_sleep_time = random.uniform(3, 6)
+
+                    time.sleep(random_sleep_time)
                     account.follow(target_user_id)
                     if retweet_response:
                         logging.info(

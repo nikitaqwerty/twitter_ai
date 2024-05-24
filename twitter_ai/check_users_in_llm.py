@@ -26,9 +26,12 @@ GIVE ME ONLY ONE NUMBER COMBINED BASED ON ALL TWEETS YOU JUST READ AND I WILL TI
 
 def fetch_users_from_db():
     query = """
-        SELECT rest_id 
-        FROM users
-        WHERE llm_check_score IS NULL;
+        SELECT u.rest_id 
+        FROM users u
+        JOIN tweets t ON u.rest_id = t.user_id
+        WHERE u.llm_check_score IS NULL
+        GROUP BY u.rest_id
+        HAVING COUNT(t.tweet_id) >= 5;
     """
     with get_db_connection() as db:
         return db.run_query(query)

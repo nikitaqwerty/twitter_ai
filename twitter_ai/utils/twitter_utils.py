@@ -37,6 +37,7 @@ def get_twitter_scraper():
 
 def get_twitter_account():
     try:
+        # raise KeyError
         # Try to resume session using cookies
         account = Account(cookies="rndm_world.cookies")
         logging.info("Loaded account from cookies.")
@@ -85,7 +86,7 @@ def extract_users_and_ids(entries):
 
 if __name__ == "__main__":
     acc = get_twitter_account()
-    resp = acc.tweet("omg")
+    # resp = acc.tweet("omg")
     # tweet_results = resp['data']['create_tweet']['tweet_results']['result']
     # id = tweet_results['rest_id']
-    print(resp)
+    # print(resp)
