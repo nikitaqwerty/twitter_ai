@@ -67,7 +67,7 @@ def fetch_tweets_from_db(db):
             AND length(tweet_text) > 50
             AND users.llm_check_score > 7
             AND has_urls = False
-            AND tweets.created_at > NOW() - INTERVAL '24 HOURS'
+            AND tweets.created_at > NOW() - INTERVAL '12 HOURS'
             AND tweet_text !~* '(retweet|reply|comment)'
             AND lang = 'en'
             ORDER BY tweets.views DESC
@@ -125,7 +125,7 @@ def main():
 
     with get_db_connection() as db:
 
-        process_and_insert_users(db, scraper, account.id)
+        # process_and_insert_users(db, scraper, account.id)
         while True:
             try:
                 # Fetch tweets from the database
