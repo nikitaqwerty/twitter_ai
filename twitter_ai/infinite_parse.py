@@ -29,9 +29,11 @@ def get_users_to_parse(db, hours=48, limit_users=2):
     query = """
         SELECT rest_id, username 
         FROM users
-        WHERE (llm_check_score is null or llm_check_score > 5) and (tweets_parsed = FALSE 
-           OR tweets_parsed_last_timestamp < NOW() - INTERVAL '%s HOURS')
-        ORDER BY llm_check_score DESC
+        WHERE (llm_check_score is null or llm_check_score > 5) 
+        and (tweets_parsed = FALSE OR tweets_parsed_last_timestamp < NOW() - INTERVAL '%s HOURS')
+        ORDER BY 
+            CASE WHEN tweets_parsed = FALSE THEN 0 ELSE 1 END,
+            tweets_parsed_last_timestamp ASC
         LIMIT %s;
     """
     return db.run_query(query, (hours, limit_users))
