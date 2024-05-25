@@ -63,15 +63,14 @@ def fetch_tweets_from_db(db):
             FROM tweets
             JOIN users ON tweets.user_id = users.rest_id
             WHERE 
-            (retweeted_tweet IS NULL OR retweeted_tweet = '{}'::jsonb) 
-            AND length(tweet_text) > 50
+            length(tweet_text) > 50
             AND users.llm_check_score > 7
             AND has_urls = False
             AND tweets.created_at > NOW() - INTERVAL '12 HOURS'
-            AND tweet_text !~* '(retweet|reply|comment)'
+            AND tweet_text !~* '(retweet|reply|comment|RT @)'
             AND lang = 'en'
             ORDER BY tweets.views DESC
-            LIMIT 200
+            LIMIT 400
         )
         SELECT tweet_text
         FROM top_tweets

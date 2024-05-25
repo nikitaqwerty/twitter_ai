@@ -21,10 +21,10 @@ def fetch_tweets_for_retweet(db):
             JOIN users ON tweets.user_id = users.rest_id
             LEFT JOIN actions ON tweets.tweet_id = actions.tweet_id
             WHERE 
-                users.llm_check_score > 8
-                AND users.followers_count < 20000
-                and users.friends_count > 1000
-                AND tweets.created_at > NOW() - INTERVAL '24 HOURS'
+                users.llm_check_score > 7
+                -- AND users.followers_count < 30000
+                -- and users.friends_count > 1000
+                AND tweets.created_at > NOW() - INTERVAL '6 HOURS'
                 AND tweets.tweet_text !~* '(retweet|reply|comment|RT @)'
                 AND tweets.lang = 'en'
                 AND actions.tweet_id IS NULL
