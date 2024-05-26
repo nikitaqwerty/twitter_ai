@@ -59,17 +59,10 @@ def analyze_tweets_with_llm(tweets, max_retries=5, backoff_factor=1):
     while retries < max_retries:
         try:
             response = groq_llm.get_response(prompt)
-            if response:
-                break
-            else:
-                wait_time = backoff_factor * (2**retries)
-                logging.error(
-                    f"Error fetching LLM response. Retrying in {wait_time} seconds..."
-                )
-                time.sleep(wait_time)
-                retries += 1
-        except Exception as e:
-            if "context_length_exceeded" in str(e):
+            if (
+                isinstance(response, dict)
+                and response.get("error") == "context_length_exceeded"
+            ):
                 logging.error(
                     "Context length exceeded, reducing the number of tweets and retrying..."
                 )
@@ -82,12 +75,21 @@ def analyze_tweets_with_llm(tweets, max_retries=5, backoff_factor=1):
                     raise ValueError(
                         "Cannot reduce tweets length further, only one tweet left."
                     )
+            elif response:
+                break
             else:
-                logging.error(f"Exception during LLM API call: {e}")
                 wait_time = backoff_factor * (2**retries)
-                logging.error(f"Retrying in {wait_time} seconds...")
+                logging.error(
+                    f"Error fetching LLM response. Retrying in {wait_time} seconds..."
+                )
                 time.sleep(wait_time)
                 retries += 1
+        except Exception as e:
+            logging.error(f"Exception during LLM API call: {e}")
+            wait_time = backoff_factor * (2**retries)
+            logging.error(f"Retrying in {wait_time} seconds...")
+            time.sleep(wait_time)
+            retries += 1
 
     if not response:
         raise ValueError(

@@ -33,7 +33,10 @@ class GroqAPIHandler(APIHandler):
             )
             return chat_completion.choices[0].message.content
         except Exception as e:
-            logging.error(f"GroqAPI error: {e}")
+            error_message = str(e)
+            logging.error(f"GroqAPI error: {error_message}")
+            if "context_length_exceeded" in error_message:
+                return {"error": "context_length_exceeded"}
             return None
 
 
