@@ -86,7 +86,8 @@ def extract_users_and_ids(entries):
 
 if __name__ == "__main__":
     acc = get_twitter_account()
-    # resp = acc.tweet("omg")
+    resp = acc.tweet("omg")
+    print(resp)
     # tweet_results = resp['data']['create_tweet']['tweet_results']['result']
     # id = tweet_results['rest_id']
     # print(resp)

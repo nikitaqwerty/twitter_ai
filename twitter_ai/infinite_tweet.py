@@ -66,9 +66,10 @@ def fetch_tweets_from_db(db):
             length(tweet_text) > 50
             AND users.llm_check_score > 7
             AND has_urls = False
-            AND tweets.created_at > NOW() - INTERVAL '12 HOURS'
+            AND tweets.created_at > NOW() - INTERVAL '24 HOURS'
             AND tweet_text !~* '(retweet|reply|comment|RT @)'
             AND lang = 'en'
+            AND users.username != 'rndm_world'
             ORDER BY tweets.views DESC
             LIMIT 400
         )
@@ -81,7 +82,7 @@ def fetch_tweets_from_db(db):
 
 
 def extract_final_tweet(initial_response, llm):
-    logging.info("Extracting the final twee.")
+    logging.info("Extracting the final tweet.")
 
     extraction_prompt = f"""
     You will receive an initial response from another LLM that was asked to write a tweet. Your task is to extract and return only the final tweet from the response, ignoring any other content, labels, quotes or comments. 
@@ -100,7 +101,7 @@ def extract_final_tweet(initial_response, llm):
 
 def summarize_tweets(tweets, llm):
     tweets_text = "\n=============\n".join([tweet[0] for tweet in tweets])
-    logging.info("Summarizing tweets for the prompt.")
+    logging.info(f"Summarizing tweets for the prompt. Input tweets: \n{tweets_text}")
 
     prompt = f"{prompt_template} \n\n {tweets_text}"
     initial_llm_response = llm.get_response(prompt)
@@ -184,3 +185,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# "auth" in str(resp['errors'])

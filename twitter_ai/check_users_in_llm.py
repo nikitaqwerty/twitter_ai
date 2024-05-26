@@ -49,10 +49,13 @@ def fetch_latest_tweets_for_user(db, user_id, limit=20):
 
 
 def analyze_tweets_with_llm(tweets, max_retries=5, backoff_factor=1):
-    tweets_text = "\n=============\n".join(tweet[0] for tweet in tweets)
-    prompt = prompt_template.format(tweets=tweets_text)
+    def get_prompt_from_tweets(tweets_list):
+        tweets_text = "\n=============\n".join(tweet[0] for tweet in tweets_list)
+        return prompt_template.format(tweets=tweets_text)
 
+    prompt = get_prompt_from_tweets(tweets)
     retries = 0
+
     while retries < max_retries:
         try:
             response = groq_llm.get_response(prompt)
@@ -66,11 +69,25 @@ def analyze_tweets_with_llm(tweets, max_retries=5, backoff_factor=1):
                 time.sleep(wait_time)
                 retries += 1
         except Exception as e:
-            logging.error(f"Exception during LLM API call: {e}")
-            wait_time = backoff_factor * (2**retries)
-            logging.error(f"Retrying in {wait_time} seconds...")
-            time.sleep(wait_time)
-            retries += 1
+            if "context_length_exceeded" in str(e):
+                logging.error(
+                    "Context length exceeded, reducing the number of tweets and retrying..."
+                )
+                if len(tweets) > 1:
+                    tweets = tweets[
+                        : len(tweets) // 2
+                    ]  # Reduce the number of tweets by half
+                    prompt = get_prompt_from_tweets(tweets)
+                else:
+                    raise ValueError(
+                        "Cannot reduce tweets length further, only one tweet left."
+                    )
+            else:
+                logging.error(f"Exception during LLM API call: {e}")
+                wait_time = backoff_factor * (2**retries)
+                logging.error(f"Retrying in {wait_time} seconds...")
+                time.sleep(wait_time)
+                retries += 1
 
     if not response:
         raise ValueError(
