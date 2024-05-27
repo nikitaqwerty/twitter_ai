@@ -95,9 +95,20 @@ def extract_final_tweet(initial_response, llm):
     """
 
     final_tweet_response = llm.get_response(extraction_prompt)
+    final_tweet = final_tweet_response.strip()
 
-    # Assuming the final response is clean and does not contain extra text
-    return final_tweet_response.strip()
+    # Remove starting and ending quotes if present
+    if final_tweet.startswith('"') and final_tweet.endswith('"'):
+        final_tweet = final_tweet[1:-1].strip()
+
+    # Check if the tweet meets length criteria
+    if len(final_tweet) <= 10 or len(final_tweet) >= 280:
+        logging.warning(
+            f"Tweet length is invalid: {len(final_tweet)} characters. Tweet: {final_tweet}"
+        )
+        return None
+
+    return final_tweet
 
 
 def summarize_tweets(tweets, llm):
@@ -109,8 +120,13 @@ def summarize_tweets(tweets, llm):
     logging.info(f"Raw LLM response: {initial_llm_response}")
 
     final_tweet = extract_final_tweet(initial_llm_response, llm)
-    logging.info(f"Extracted final tweet: {final_tweet}")
+    if not final_tweet:
+        logging.warning(
+            "Final tweet extraction failed or tweet did not meet the criteria."
+        )
+        return None, None
 
+    logging.info(f"Extracted final tweet: {final_tweet}")
     return initial_llm_response, final_tweet
 
 
@@ -125,7 +141,6 @@ def main():
     scraper = get_twitter_scraper()
 
     with get_db_connection() as db:
-
         # process_and_insert_users(db, scraper, account.id)
         while True:
             try:
@@ -151,7 +166,7 @@ def main():
 
                 if not twit:
                     logging.warning(
-                        "Received empty tweet from LLM. Skipping this cycle."
+                        "Received empty or invalid tweet from LLM. Skipping this cycle."
                     )
                     time.sleep(60)  # Wait a bit before retrying
                     continue
@@ -186,5 +201,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# "auth" in str(resp['errors'])
