@@ -64,7 +64,7 @@ def fetch_tweets_from_db(db):
             JOIN users ON tweets.user_id = users.rest_id
             WHERE 
             length(tweet_text) > 50
-            AND users.llm_check_score > 7
+            AND users.llm_check_score > 5
             AND has_urls = False
             AND tweets.created_at > NOW() - INTERVAL '24 HOURS'
             AND tweet_text !~* '(follow|retweet|reply|comment|giveaway|RT @)'
