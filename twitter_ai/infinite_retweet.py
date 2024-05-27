@@ -79,7 +79,7 @@ def main():
                     random_sleep_time = random.uniform(3, 6)
 
                     time.sleep(random_sleep_time)
-                    account.follow(target_user_id)
+                    # account.follow(target_user_id)
                     if retweet_response:
                         logging.info(
                             f"Successfully retweeted tweet ID: {target_tweet_id}"
@@ -106,17 +106,17 @@ def main():
                             None,
                             None,
                         )
-                        insert_action(
-                            db,
-                            account.id,
-                            "follow",
-                            None,
-                            None,
-                            target_user_id,
-                            None,
-                            None,
-                            None,
-                        )
+                        # insert_action(
+                        #     db,
+                        #     account.id,
+                        #     "follow",
+                        #     None,
+                        #     None,
+                        #     target_user_id,
+                        #     None,
+                        #     None,
+                        #     None,
+                        # )
 
                 logging.info("Cycle complete. Waiting for the next cycle.")
                 random_sleep_time = random.uniform(CYCLE_DELAY * 0.5, CYCLE_DELAY * 1.5)

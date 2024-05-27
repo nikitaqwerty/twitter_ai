@@ -2,7 +2,7 @@ import os
 import json
 import datetime
 from db.database import Database
-from utils.config import configure_logging
+from utils.config import configure_logging, logging
 
 configure_logging()
 
@@ -77,44 +77,56 @@ def insert_users(db, user_results):
         user_results = [user_results]
 
     params_list = []
-    for user_result in user_results:
-        legacy = user_result.get("legacy", {})
-        professional = user_result.get("professional", {})
-        category_name = ""
-        if (
-            professional.get("category")
-            and isinstance(professional.get("category"), list)
-            and professional["category"]
-        ):
-            if isinstance(professional["category"][0], dict):
-                category_name = professional["category"][0].get("name", "")
+    omitted_rows = 0
 
-        params = (
-            user_result.get("rest_id", ""),
-            legacy.get("screen_name", ""),
-            legacy.get("name", ""),
-            legacy.get("profile_image_url_https", ""),
-            legacy.get("profile_banner_url", ""),
-            legacy.get("description", ""),
-            legacy.get("location", ""),
-            legacy.get("followers_count", 0),
-            legacy.get("friends_count", 0),
-            legacy.get("favourites_count", 0),
-            legacy.get("statuses_count", 0),
-            legacy.get("created_at", None),
-            user_result.get("is_blue_verified", False),
-            legacy.get("is_translator", False),
-            legacy.get("verified", False),
-            professional.get("professional_type", ""),
-            category_name,
-            False,  # Default value for tweets_parsed
-            None,  # Default value for tweets_parsed_last_timestamp
-            False,  # Default value for recommendations_pulled
-            None,  # Default value for recommendations_pulled_last_timestamp
-        )
-        params_list.append(params)
+    for user_result in user_results:
+        try:
+            legacy = user_result.get("legacy", {})
+            professional = user_result.get("professional", {})
+            category_name = ""
+            if (
+                professional.get("category")
+                and isinstance(professional.get("category"), list)
+                and professional["category"]
+            ):
+                if isinstance(professional["category"][0], dict):
+                    category_name = professional["category"][0].get("name", "")
+
+            params = (
+                user_result.get("rest_id", ""),
+                legacy.get("screen_name", ""),
+                legacy.get("name", ""),
+                legacy.get("profile_image_url_https", ""),
+                legacy.get("profile_banner_url", ""),
+                legacy.get("description", ""),
+                legacy.get("location", ""),
+                legacy.get("followers_count", 0),
+                legacy.get("friends_count", 0),
+                legacy.get("favourites_count", 0),
+                legacy.get("statuses_count", 0),
+                legacy.get("created_at", None),
+                user_result.get("is_blue_verified", False),
+                legacy.get("is_translator", False),
+                legacy.get("verified", False),
+                professional.get("professional_type", ""),
+                category_name,
+                False,  # Default value for tweets_parsed
+                None,  # Default value for tweets_parsed_last_timestamp
+                False,  # Default value for recommendations_pulled
+                None,  # Default value for recommendations_pulled_last_timestamp
+            )
+            params_list.append(params)
+        except KeyError as e:
+            logging.error(f"KeyError: {e}. Omitting row for user_result: {user_result}")
+            omitted_rows += 1
+        except Exception as e:
+            logging.error(
+                f"Unexpected error: {e}. Omitting row for user_result: {user_result}"
+            )
+            omitted_rows += 1
 
     db.run_insert_query(query, params_list)
+    logging.info(f"Omitted {omitted_rows} rows due to missing keys or errors.")
     return db.cursor.rowcount
 
 
@@ -157,54 +169,71 @@ def insert_tweets(db, tweet_results_list):
         tweet_results_list = [tweet_results_list]
 
     params_list = []
+    omitted_rows = 0
+
     for tweet_results in tweet_results_list:
-        legacy = tweet_results["legacy"]
-        media_entities = legacy.get("extended_entities", {}).get("media", [])
+        try:
+            legacy = tweet_results["legacy"]
+            media_entities = legacy.get("extended_entities", {}).get("media", [])
 
-        media_urls = [media["media_url_https"] for media in media_entities]
-        media_types = [media["type"] for media in media_entities]
-        media_sizes = {media["media_key"]: media["sizes"] for media in media_entities}
+            media_urls = [media["media_url_https"] for media in media_entities]
+            media_types = [media["type"] for media in media_entities]
+            media_sizes = {
+                media["media_key"]: media["sizes"] for media in media_entities
+            }
 
-        params = (
-            tweet_results["rest_id"],
-            tweet_results.get("note_tweet", {})
-            .get("note_tweet_results", {})
-            .get("result", {})
-            .get("text", legacy.get("full_text", "")),
-            legacy.get("favorite_count", 0),
-            legacy.get("retweet_count", 0),
-            legacy.get("reply_count", 0),
-            legacy.get("quote_count", 0),
-            legacy.get("bookmark_count", 0),
-            legacy.get("created_at", None),
-            tweet_results.get("views", {}).get("count", 0),
-            "media" in legacy.get("extended_entities", {}),
-            bool(legacy.get("entities", {}).get("user_mentions", [])),
-            [
-                mention["id_str"]
-                for mention in legacy.get("entities", {}).get("user_mentions", [])
-            ],
-            bool(legacy.get("entities", {}).get("urls", [])),
-            bool(legacy.get("entities", {}).get("hashtags", [])),
-            bool(legacy.get("entities", {}).get("symbols", [])),
-            [
-                symbol["text"]
-                for symbol in legacy.get("entities", {}).get("symbols", [])
-            ],
-            legacy.get("user_id_str", ""),
-            legacy.get("possibly_sensitive", False),
-            legacy.get("lang", ""),
-            tweet_results.get("source", ""),
-            media_urls,  # Already a list
-            media_types,  # Already a list
-            json.dumps(media_sizes),
-            json.dumps(legacy.get("retweeted_status_result", {})),
-            json.dumps(tweet_results.get("quoted_status_result", {})),
-            json.dumps(tweet_results.get("card", {})),
-        )
-        params_list.append(params)
+            params = (
+                tweet_results["rest_id"],
+                tweet_results.get("note_tweet", {})
+                .get("note_tweet_results", {})
+                .get("result", {})
+                .get("text", legacy.get("full_text", "")),
+                legacy.get("favorite_count", 0),
+                legacy.get("retweet_count", 0),
+                legacy.get("reply_count", 0),
+                legacy.get("quote_count", 0),
+                legacy.get("bookmark_count", 0),
+                legacy.get("created_at", None),
+                tweet_results.get("views", {}).get("count", 0),
+                "media" in legacy.get("extended_entities", {}),
+                bool(legacy.get("entities", {}).get("user_mentions", [])),
+                [
+                    mention["id_str"]
+                    for mention in legacy.get("entities", {}).get("user_mentions", [])
+                ],
+                bool(legacy.get("entities", {}).get("urls", [])),
+                bool(legacy.get("entities", {}).get("hashtags", [])),
+                bool(legacy.get("entities", {}).get("symbols", [])),
+                [
+                    symbol["text"]
+                    for symbol in legacy.get("entities", {}).get("symbols", [])
+                ],
+                legacy.get("user_id_str", ""),
+                legacy.get("possibly_sensitive", False),
+                legacy.get("lang", ""),
+                tweet_results.get("source", ""),
+                media_urls,  # Already a list
+                media_types,  # Already a list
+                json.dumps(media_sizes),
+                json.dumps(legacy.get("retweeted_status_result", {})),
+                json.dumps(tweet_results.get("quoted_status_result", {})),
+                json.dumps(tweet_results.get("card", {})),
+            )
+            params_list.append(params)
+        except KeyError as e:
+            logging.debug(
+                f"KeyError: {e}. Omitting row for tweet_results: {tweet_results}"
+            )
+            omitted_rows += 1
+        except Exception as e:
+            logging.debug(
+                f"Unexpected error: {e}. Omitting row for tweet_results: {tweet_results}"
+            )
+            omitted_rows += 1
 
     db.run_insert_query(query, params_list)
+    if omitted_rows > 0:
+        logging.info(f"Omitted {omitted_rows} rows due to missing keys or errors.")
     return db.cursor.rowcount
 
 

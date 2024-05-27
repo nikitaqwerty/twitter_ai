@@ -67,9 +67,10 @@ def fetch_tweets_from_db(db):
             AND users.llm_check_score > 7
             AND has_urls = False
             AND tweets.created_at > NOW() - INTERVAL '24 HOURS'
-            AND tweet_text !~* '(retweet|reply|comment|giveaway|RT @)'
+            AND tweet_text !~* '(follow|retweet|reply|comment|giveaway|RT @)'
             AND lang = 'en'
             AND users.username != 'rndm_world'
+            AND (users_mentioned is null or array_length(users_mentioned, 1)  < 3)
             ORDER BY tweets.views DESC
             LIMIT 400
         )
