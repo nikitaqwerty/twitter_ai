@@ -73,14 +73,14 @@ def job():
                 tweets = fetch_tweets_to_process(db)
                 if not tweets:
                     logging.info("No tweets to process. Sleeping for a while...")
-                    time.sleep(300)  # Sleep for 60 seconds if no tweets are found
+                    time.sleep(3000)  # Sleep for 60 seconds if no tweets are found
                     continue
 
                 process_tweets(db, tweets)
                 logging.info("Processed a batch of tweets.")
 
                 # Delay between processing batches
-                time.sleep(1)  # Sleep for 10 seconds between batches
+                time.sleep(300)  # Sleep for 10 seconds between batches
 
             except Exception as e:
                 logging.error(f"Error occurred: {e}")
