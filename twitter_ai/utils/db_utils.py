@@ -126,7 +126,8 @@ def insert_users(db, user_results):
             omitted_rows += 1
 
     db.run_insert_query(query, params_list)
-    logging.info(f"Omitted {omitted_rows} rows due to missing keys or errors.")
+    if omitted_rows > 0:
+        logging.info(f"Omitted {omitted_rows} rows due to missing keys or errors.")
     return db.cursor.rowcount
 
 
