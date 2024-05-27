@@ -1,6 +1,7 @@
 from twitter.scraper import Scraper
 from twitter.util import init_session
-from utils.twitter_utils import extract_users_and_ids, get_twitter_scraper
+from utils.twitter_utils import get_twitter_scraper
+from utils.common_utils import extract_users_and_ids
 from utils.db_utils import (
     get_db_connection,
     insert_users,

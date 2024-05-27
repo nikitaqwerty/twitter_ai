@@ -53,37 +53,6 @@ def get_twitter_account(force_login=False):
     return account
 
 
-def extract_users_and_ids(entries):
-    """
-    Extracts users and their rest IDs from the given entries, filtering out users with empty rest IDs.
-
-    Parameters:
-    entries (list): A list of entries containing user data.
-
-    Returns:
-    tuple: A tuple containing two lists - one with user details and one with rest IDs.
-    """
-    if not isinstance(entries, list):
-        entries = [entries]
-
-    users = []
-    rest_ids = []
-
-    for entry in entries:
-        for item in entry.get("content", {}).get("items", []):
-            if "socialContext" not in item.get("item", {}).get("itemContent", {}):
-                try:
-                    user = item["item"]["itemContent"]["user_results"]["result"]
-                    rest_id = user.get("rest_id", "")
-                    if rest_id:  # Only append if rest_id is not empty
-                        users.append(user)
-                        rest_ids.append(rest_id)
-                except KeyError as e:
-                    logging.error(f"KeyError: {e} - item: {item}")
-
-    return users, rest_ids
-
-
 if __name__ == "__main__":
     acc = get_twitter_account()
     resp = acc.tweet("omg")
