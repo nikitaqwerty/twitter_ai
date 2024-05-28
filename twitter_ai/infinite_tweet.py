@@ -4,7 +4,7 @@ from utils.db_utils import get_db_connection, insert_action, insert_tweets
 from utils.twitter_utils import get_twitter_account, get_twitter_scraper
 from utils.common_utils import process_and_insert_users
 from llm.llm_api import OpenAIAPIHandler, GroqAPIHandler, g4fAPIHandler
-from datetime import datetime
+from datetime import datetime, timedelta
 import random
 import time
 import re
@@ -12,7 +12,7 @@ import re
 configure_logging()
 
 CYCLE_DELAY = 60 * 60  # Base delay for the cycle in seconds
-
+COOKIE_UPDATE_INTERVAL = timedelta(hours=24)
 
 prompt_template = """
 YOU ARE A HIGHLY INTELLIGENT LANGUAGE MODEL, THE WORLD'S MOST CREATIVE AND ENGAGING CRYPTO TWITTER USER. YOUR TASK IS TO READ THROUGH 75 RANDOM TWEETS ABOUT CRYPTOCURRENCIES, WEB3, AND CRYPTO POSTED TODAY. USING THIS CONTEXT, YOU WILL GENERATE A RANDOM, CREATIVE, AND PROVOCATIVE TWEET ABOUT CRYPTOCURRENCIES OR WEB3. YOUR TWEET SHOULD APPEAR CASUAL AND AUTHENTIC, AS IF WRITTEN BY A REGULAR CRYPTO TWITTER USER, NOT A PROFESSIONAL.
@@ -137,6 +137,9 @@ def main():
     llm_g4f = g4fAPIHandler(model="gpt-4o", cookies_dir=Config.COOKIES_DIR)
     llm_groq = GroqAPIHandler(Config.GROQ_API_KEY, model="llama3-70b-8192")
 
+    last_cookie_update_time = (
+        datetime.now() - COOKIE_UPDATE_INTERVAL
+    )  # Initialize to ensure immediate update on first run
     account = get_twitter_account()
     scraper = get_twitter_scraper()
 
@@ -144,6 +147,14 @@ def main():
         # process_and_insert_users(db, scraper, account.id)
         while True:
             try:
+                current_time = datetime.now()
+                # Check if 24 hours have passed since the last cookie update
+                if current_time - last_cookie_update_time >= COOKIE_UPDATE_INTERVAL:
+                    logging.info("24 hours have passed, updating cookies.")
+                    account = get_twitter_account(force_login=False)
+                    scraper = get_twitter_scraper(force_login=False)
+                    last_cookie_update_time = current_time
+
                 # Fetch tweets from the database
                 logging.info("Fetching tweets from the database.")
                 tweets = fetch_tweets_from_db(db)

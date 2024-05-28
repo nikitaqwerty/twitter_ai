@@ -2,13 +2,14 @@ import logging
 from utils.config import configure_logging
 from utils.db_utils import get_db_connection, insert_action
 from utils.twitter_utils import get_twitter_account
-from datetime import datetime
+from datetime import datetime, timedelta
 import random
 import time
 
 configure_logging()
 
 CYCLE_DELAY = 60 * 45  # Base delay for the cycle in seconds
+COOKIE_UPDATE_INTERVAL = timedelta(hours=24)
 
 
 def fetch_tweets_for_retweet(db):
@@ -56,11 +57,21 @@ def retweet_tweet(account, tweet_id):
 
 def main():
     logging.info("Initializing Twitter account.")
+    last_cookie_update_time = (
+        datetime.now() - COOKIE_UPDATE_INTERVAL
+    )  # Initialize to ensure immediate update on first run
     account = get_twitter_account()
 
     with get_db_connection() as db:
         while True:
             try:
+                current_time = datetime.now()
+                # Check if 24 hours have passed since the last cookie update
+                if current_time - last_cookie_update_time >= COOKIE_UPDATE_INTERVAL:
+                    logging.info("24 hours have passed, updating cookies.")
+                    account = get_twitter_account(force_login=False)
+                    last_cookie_update_time = current_time
+
                 # Fetch tweets from the database
                 logging.info("Fetching tweets from the database for retweeting.")
                 tweets = fetch_tweets_for_retweet(db)
@@ -125,10 +136,6 @@ def main():
             except Exception as e:
                 logging.error(f"An error occurred: {e}", exc_info=True)
                 time.sleep(60)  # Sleep for 1 minute before retrying
-
-
-if __name__ == "__main__":
-    main()
 
 
 if __name__ == "__main__":
