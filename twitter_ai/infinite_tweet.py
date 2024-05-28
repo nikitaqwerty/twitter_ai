@@ -13,6 +13,7 @@ configure_logging()
 
 CYCLE_DELAY = 60 * 60  # Base delay for the cycle in seconds
 COOKIE_UPDATE_INTERVAL = timedelta(hours=24)
+FIRST_ACCOUNT_RUN = False
 
 prompt_template = """
 YOU ARE A HIGHLY INTELLIGENT LANGUAGE MODEL, THE WORLD'S MOST CREATIVE AND ENGAGING CRYPTO TWITTER USER. YOUR TASK IS TO READ THROUGH 75 RANDOM TWEETS ABOUT CRYPTOCURRENCIES, WEB3, AND CRYPTO POSTED TODAY. USING THIS CONTEXT, YOU WILL GENERATE A RANDOM, CREATIVE, AND PROVOCATIVE TWEET ABOUT CRYPTOCURRENCIES OR WEB3. YOUR TWEET SHOULD APPEAR CASUAL AND AUTHENTIC, AS IF WRITTEN BY A REGULAR CRYPTO TWITTER USER, NOT A PROFESSIONAL.
@@ -113,7 +114,7 @@ def extract_final_tweet(initial_response, llm):
 
 def summarize_tweets(tweets, llm):
     tweets_text = "\n=============\n".join([tweet[0] for tweet in tweets])
-    logging.info(f"Summarizing tweets for the prompt. Input tweets: \n{tweets_text}")
+    logging.debug(f"Summarizing tweets for the prompt. Input tweets: \n{tweets_text}")
 
     prompt = f"{prompt_template} \n\n {tweets_text}"
     initial_llm_response = llm.get_response(prompt)
@@ -140,10 +141,11 @@ def main():
     last_cookie_update_time = datetime.now()  # Initialize to the current time
 
     account = get_twitter_account()
-    scraper = get_twitter_scraper()
 
     with get_db_connection() as db:
-        # process_and_insert_users(db, scraper, account.id)
+        if FIRST_ACCOUNT_RUN:
+            scraper = get_twitter_scraper()
+            process_and_insert_users(db, scraper, account.id)
         while True:
             try:
                 current_time = datetime.now()
