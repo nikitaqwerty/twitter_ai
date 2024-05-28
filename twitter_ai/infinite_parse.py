@@ -3,6 +3,7 @@ import time
 import logging
 import traceback
 import random
+from datetime import datetime, timedelta
 from utils.db_utils import (
     get_db_connection,
     update_user_tweets_status,
@@ -23,6 +24,7 @@ USERS_PER_BATCH = 5
 PAGES_PER_USER = 1
 CYCLE_DELAY = 60  # Base delay for the cycle in seconds
 USERS_UPDATE_HOURS_DELAY = 48
+COOKIE_UPDATE_INTERVAL = timedelta(hours=24)
 
 
 def get_users_to_parse(db, hours=48, limit_users=2):
@@ -39,24 +41,22 @@ def get_users_to_parse(db, hours=48, limit_users=2):
     return db.run_query(query, (hours, limit_users))
 
 
-def get_high_score_users(db, min_score=8, hours=48, limit_users=5):
-    query = """
-        SELECT rest_id, username
-        FROM users
-        WHERE llm_check_score > %s 
-            AND (recommendations_pulled_last_timestamp > NOW() - INTERVAL '%s HOURS'   
-                    OR recommendations_pulled_last_timestamp IS NULL)
-        ORDER BY recommendations_pulled_last_timestamp ASC
-        LIMIT %s;
-    """
-    return db.run_query(query, (min_score, hours, limit_users))
-
-
 def main():
+    last_cookie_update_time = (
+        datetime.now() - COOKIE_UPDATE_INTERVAL
+    )  # Initialize to ensure immediate update on first run
     scraper = get_twitter_scraper()
+
     with get_db_connection() as db:
         while True:
             try:
+                current_time = datetime.now()
+                # Check if 24 hours have passed since the last cookie update
+                if current_time - last_cookie_update_time >= COOKIE_UPDATE_INTERVAL:
+                    logging.info("24 hours have passed, updating cookies.")
+                    scraper = get_twitter_scraper(force_login=True)
+                    last_cookie_update_time = current_time
+
                 users_to_parse = get_users_to_parse(
                     db, hours=USERS_UPDATE_HOURS_DELAY, limit_users=USERS_PER_BATCH
                 )
@@ -70,19 +70,10 @@ def main():
                     if tweets:
                         save_tweets_to_db(db, tweets)
                         update_user_tweets_status(db, user_ids)
-
                 else:
                     logging.info(
                         f"No users to pull tweets. Adding new recommended users"
                     )
-                    # high_score_users = get_high_score_users(db, limit_users=5)
-                    # if high_score_users:
-                    #     user_ids = [user[0] for user in high_score_users]
-                    #     new_users_count = save_users_recommendations_by_ids(
-                    #         db, scraper, user_ids
-                    #     )
-                    #     logging.info(f"New users inserted by X rec {new_users_count}")
-                    # if new_users_count == 0:
                     user_ids = [
                         user[0]
                         for user in get_most_mentioned_new_users(db, limit_users=200)
