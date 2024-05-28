@@ -1,10 +1,12 @@
 import logging
-from utils.config import configure_logging
+import sys
+from utils.config import configure_logging, Config
 from utils.db_utils import get_db_connection, insert_action
-from utils.twitter_utils import get_twitter_account
+from utils.twitter_utils import get_twitter_account, choose_account
 from datetime import datetime, timedelta
 import random
 import time
+
 
 configure_logging()
 
@@ -55,11 +57,12 @@ def retweet_tweet(account, tweet_id):
         return None
 
 
-def main():
+def main(account_name):
     logging.info("Initializing Twitter account.")
     last_cookie_update_time = datetime.now()  # Initialize to the current time
 
-    account = get_twitter_account()
+    account = choose_account(account_name)
+    twitter_account = get_twitter_account(account)
 
     with get_db_connection() as db:
         while True:
@@ -68,7 +71,7 @@ def main():
                 # Check if 24 hours have passed since the last cookie update
                 if current_time - last_cookie_update_time >= COOKIE_UPDATE_INTERVAL:
                     logging.info("24 hours have passed, updating cookies.")
-                    account = get_twitter_account(force_login=False)
+                    twitter_account = get_twitter_account(account, force_login=False)
                     last_cookie_update_time = current_time
 
                 # Fetch tweets from the database
@@ -81,22 +84,22 @@ def main():
 
                 for tweet in tweets:
                     target_tweet_id, target_user_id = tweet
-                    retweet_response = retweet_tweet(account, target_tweet_id)
+                    retweet_response = retweet_tweet(twitter_account, target_tweet_id)
                     random_sleep_time = random.uniform(3, 6)
                     time.sleep(random_sleep_time)
 
-                    account.like(target_tweet_id)
+                    twitter_account.like(target_tweet_id)
                     random_sleep_time = random.uniform(3, 6)
 
                     time.sleep(random_sleep_time)
-                    # account.follow(target_user_id)
+                    # twitter_account.follow(target_user_id)
                     if retweet_response:
                         logging.info(
                             f"Successfully retweeted tweet ID: {target_tweet_id}"
                         )
                         insert_action(
                             db,
-                            account.id,
+                            twitter_account.id,
                             "retweet",
                             retweet_response["rest_id"],
                             target_tweet_id,
@@ -107,7 +110,7 @@ def main():
                         )
                         insert_action(
                             db,
-                            account.id,
+                            twitter_account.id,
                             "like",
                             None,
                             target_tweet_id,
@@ -118,7 +121,7 @@ def main():
                         )
                         # insert_action(
                         #     db,
-                        #     account.id,
+                        #     twitter_account.id,
                         #     "follow",
                         #     None,
                         #     None,
@@ -138,4 +141,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) < 2:
+        print("Usage: python infinite_retweet.py <account_name>")
+        sys.exit(1)
+    account_name = sys.argv[1]
+    main(account_name)

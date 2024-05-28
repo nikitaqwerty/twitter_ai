@@ -12,51 +12,45 @@ except:
 
 import logging
 
-# Set up logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
 
-def get_twitter_scraper(force_login=False):
+def get_twitter_scraper(account, force_login=False):
     try:
         if force_login:
             raise Exception("Forced login to refresh cookies.")
-        scraper = Scraper(cookies="rndm_world.cookies")
+        scraper = Scraper(cookies=f"{account['login']}.cookies")
         logging.info("Loaded scraper from cookies.")
     except Exception as e:
         logging.error(f"Failed to load scraper from cookies: {e}")
-        # If an error occurs, login using credentials
-        email = Config.TWITTER_EMAIL
-        login = Config.TWITTER_LOGIN
-        password = Config.TWITTER_PASSWORD
-        scraper = Scraper(email, login, password)
+        scraper = Scraper(account["email"], account["login"], account["password"])
         scraper.save_cookies()
         logging.info("Logged in and saved scraper cookies.")
     return scraper
 
 
-def get_twitter_account(force_login=False):
+def get_twitter_account(account, force_login=False):
     try:
         if force_login:
             raise Exception("Forced login to refresh cookies.")
-        account = Account(cookies="rndm_world.cookies")
+        twitter_account = Account(cookies=f"{account['login']}.cookies")
         logging.info("Loaded account from cookies.")
     except Exception as e:
         logging.error(f"Failed to load account from cookies: {e}")
-        email = Config.TWITTER_EMAIL
-        login = Config.TWITTER_LOGIN
-        password = Config.TWITTER_PASSWORD
-        account = Account(email, login, password)
-        account.save_cookies()
+        twitter_account = Account(
+            account["email"], account["login"], account["password"]
+        )
+        twitter_account.save_cookies()
         logging.info("Logged in and saved account cookies.")
+    return twitter_account
+
+
+def choose_account(account_name):
+    accounts = Config.get_twitter_accounts()
+    account = next((acc for acc in accounts if acc["login"] == account_name), None)
+    if not account:
+        logging.error(f"Account with name {account_name} not found.")
+        return None
     return account
-
-
-if __name__ == "__main__":
-    acc = get_twitter_account()
-    resp = acc.tweet("omg")
-    print(resp)
-    # tweet_results = resp['data']['create_tweet']['tweet_results']['result']
-    # id = tweet_results['rest_id']
-    # print(resp)

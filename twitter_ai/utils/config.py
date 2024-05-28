@@ -1,3 +1,5 @@
+# config.py
+
 import os
 from dotenv import load_dotenv
 import logging
@@ -15,9 +17,6 @@ load_dotenv()
 
 
 class Config:
-    TWITTER_EMAIL = os.getenv("TWITTER_EMAIL")
-    TWITTER_LOGIN = os.getenv("TWITTER_LOGIN")
-    TWITTER_PASSWORD = os.getenv("TWITTER_PASSWORD")
     DB_HOST = os.getenv("DB_HOST", "localhost")
     DB_NAME = os.getenv("DB_NAME", "crypto-twitter")
     DB_USER = os.getenv("DB_USER", "myuser")
@@ -25,3 +24,18 @@ class Config:
     GROQ_API_KEY = os.getenv("GROQ_API_KEY")
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
     COOKIES_DIR = os.getenv("COOKIES_DIR")
+
+    @staticmethod
+    def get_twitter_accounts():
+        accounts = []
+        i = 1
+        while os.getenv(f"TWITTER_EMAIL_{i}"):
+            accounts.append(
+                {
+                    "email": os.getenv(f"TWITTER_EMAIL_{i}"),
+                    "login": os.getenv(f"TWITTER_LOGIN_{i}"),
+                    "password": os.getenv(f"TWITTER_PASSWORD_{i}"),
+                }
+            )
+            i += 1
+        return accounts

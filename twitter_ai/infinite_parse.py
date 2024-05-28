@@ -1,3 +1,5 @@
+# infinite_parse.py
+
 import os
 import time
 import logging
@@ -9,14 +11,14 @@ from utils.db_utils import (
     update_user_tweets_status,
     get_most_mentioned_new_users,
 )
-from utils.twitter_utils import get_twitter_scraper
+from utils.twitter_utils import get_twitter_scraper, choose_account
 from utils.common_utils import (
     fetch_tweets_for_users,
     save_tweets_to_db,
     save_users_recommendations_by_ids,
     process_and_insert_users,
 )
-from utils.config import configure_logging
+from utils.config import configure_logging, Config
 
 configure_logging()
 
@@ -41,10 +43,11 @@ def get_users_to_parse(db, hours=48, limit_users=2):
     return db.run_query(query, (hours, limit_users))
 
 
-def main():
+def main(account_name):
     last_cookie_update_time = datetime.now()  # Initialize to the current time
 
-    scraper = get_twitter_scraper()
+    account = choose_account(account_name)
+    scraper = get_twitter_scraper(account)
 
     with get_db_connection() as db:
         while True:
@@ -53,7 +56,7 @@ def main():
                 # Check if 24 hours have passed since the last cookie update
                 if current_time - last_cookie_update_time >= COOKIE_UPDATE_INTERVAL:
                     logging.info("24 hours have passed, updating cookies.")
-                    scraper = get_twitter_scraper(force_login=False)
+                    scraper = get_twitter_scraper(account, force_login=False)
                     last_cookie_update_time = current_time
 
                 users_to_parse = get_users_to_parse(
@@ -91,4 +94,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+
+    if len(sys.argv) < 2:
+        print("Usage: python infinite_parse.py <account_name>")
+        sys.exit(1)
+    account_name = sys.argv[1]
+    main(account_name)

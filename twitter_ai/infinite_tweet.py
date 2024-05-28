@@ -1,13 +1,14 @@
 import logging
 from utils.config import Config, configure_logging
 from utils.db_utils import get_db_connection, insert_action, insert_tweets
-from utils.twitter_utils import get_twitter_account, get_twitter_scraper
+from utils.twitter_utils import get_twitter_account, get_twitter_scraper, choose_account
 from utils.common_utils import process_and_insert_users
 from llm.llm_api import OpenAIAPIHandler, GroqAPIHandler, g4fAPIHandler
 from datetime import datetime, timedelta
 import random
 import time
 import re
+import sys
 
 configure_logging()
 
@@ -131,7 +132,8 @@ def summarize_tweets(tweets, llm):
     return initial_llm_response, final_tweet
 
 
-def main():
+def main(account_name):
+    logging.info("Initializing Twitter account.")
     # Initialize OpenAI LLM
     logging.info("Initializing OpenAI LLM.")
     # llm = OpenAIAPIHandler(Config.OPENAI_API_KEY, model="gpt-4o")
@@ -140,12 +142,13 @@ def main():
 
     last_cookie_update_time = datetime.now()  # Initialize to the current time
 
-    account = get_twitter_account()
+    account = choose_account(account_name)
+    twitter_account = get_twitter_account(account)
 
     with get_db_connection() as db:
         if FIRST_ACCOUNT_RUN:
-            scraper = get_twitter_scraper()
-            process_and_insert_users(db, scraper, account.id)
+            scraper = get_twitter_scraper(account)
+            process_and_insert_users(db, scraper, twitter_account.id)
         while True:
             try:
                 current_time = datetime.now()
@@ -153,8 +156,8 @@ def main():
                 if current_time - last_cookie_update_time >= COOKIE_UPDATE_INTERVAL:
                     logging.info("24 hours have passed, updating cookies.")
                     time.sleep(10)
-                    account = get_twitter_account(force_login=True)
-                    scraper = get_twitter_scraper(force_login=False)
+                    twitter_account = get_twitter_account(account, force_login=True)
+                    scraper = get_twitter_scraper(account, force_login=False)
                     last_cookie_update_time = current_time
 
                 # Fetch tweets from the database
@@ -188,12 +191,12 @@ def main():
 
                 # Post tweet
                 logging.info("Posting tweet.")
-                resp = account.tweet(twit)
+                resp = twitter_account.tweet(twit)
                 tweet_results = resp["data"]["create_tweet"]["tweet_results"]["result"]
                 insert_tweets(db, tweet_results)
                 insert_action(
                     db,
-                    account.id,
+                    twitter_account.id,
                     "tweet",
                     tweet_results["rest_id"],
                     None,
@@ -213,4 +216,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) < 2:
+        print("Usage: python infinite_tweet.py <account_name>")
+        sys.exit(1)
+    account_name = sys.argv[1]
+    main(account_name)
