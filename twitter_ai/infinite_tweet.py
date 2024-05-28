@@ -137,9 +137,8 @@ def main():
     llm_g4f = g4fAPIHandler(model="gpt-4o", cookies_dir=Config.COOKIES_DIR)
     llm_groq = GroqAPIHandler(Config.GROQ_API_KEY, model="llama3-70b-8192")
 
-    last_cookie_update_time = (
-        datetime.now() - COOKIE_UPDATE_INTERVAL
-    )  # Initialize to ensure immediate update on first run
+    last_cookie_update_time = datetime.now()  # Initialize to the current time
+
     account = get_twitter_account()
     scraper = get_twitter_scraper()
 
@@ -151,7 +150,8 @@ def main():
                 # Check if 24 hours have passed since the last cookie update
                 if current_time - last_cookie_update_time >= COOKIE_UPDATE_INTERVAL:
                     logging.info("24 hours have passed, updating cookies.")
-                    account = get_twitter_account(force_login=False)
+                    time.sleep(10)
+                    account = get_twitter_account(force_login=True)
                     scraper = get_twitter_scraper(force_login=False)
                     last_cookie_update_time = current_time
 

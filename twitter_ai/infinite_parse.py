@@ -42,9 +42,8 @@ def get_users_to_parse(db, hours=48, limit_users=2):
 
 
 def main():
-    last_cookie_update_time = (
-        datetime.now() - COOKIE_UPDATE_INTERVAL
-    )  # Initialize to ensure immediate update on first run
+    last_cookie_update_time = datetime.now()  # Initialize to the current time
+
     scraper = get_twitter_scraper()
 
     with get_db_connection() as db:
@@ -54,7 +53,7 @@ def main():
                 # Check if 24 hours have passed since the last cookie update
                 if current_time - last_cookie_update_time >= COOKIE_UPDATE_INTERVAL:
                     logging.info("24 hours have passed, updating cookies.")
-                    scraper = get_twitter_scraper(force_login=True)
+                    scraper = get_twitter_scraper(force_login=False)
                     last_cookie_update_time = current_time
 
                 users_to_parse = get_users_to_parse(

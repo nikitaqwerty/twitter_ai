@@ -57,9 +57,8 @@ def retweet_tweet(account, tweet_id):
 
 def main():
     logging.info("Initializing Twitter account.")
-    last_cookie_update_time = (
-        datetime.now() - COOKIE_UPDATE_INTERVAL
-    )  # Initialize to ensure immediate update on first run
+    last_cookie_update_time = datetime.now()  # Initialize to the current time
+
     account = get_twitter_account()
 
     with get_db_connection() as db:
