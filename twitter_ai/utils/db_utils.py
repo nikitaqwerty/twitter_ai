@@ -265,11 +265,11 @@ def update_user_tweets_status(db, rest_ids):
 
     query = f"""
         UPDATE users
-        SET tweets_parsed = %s, tweets_parsed_last_timestamp = %s
+        SET tweets_parsed = %s, tweets_parsed_last_timestamp = %s, status = %s
         WHERE rest_id IN ({placeholders});
     """
 
-    params = (True, datetime.datetime.utcnow(), *rest_ids)
+    params = (True, datetime.datetime.now(datetime.UTC), "idle", *rest_ids)
     db.run_query(query, params)
 
 

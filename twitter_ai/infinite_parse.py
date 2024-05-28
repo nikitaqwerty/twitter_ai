@@ -31,21 +31,29 @@ COOKIE_UPDATE_INTERVAL = timedelta(hours=24)
 
 def get_users_to_parse(db, hours=48, limit_users=2):
     query = """
-        SELECT rest_id, username 
-        FROM users
-        WHERE (llm_check_score is null or llm_check_score > 5) 
-        and (tweets_parsed = FALSE OR tweets_parsed_last_timestamp < NOW() - INTERVAL '%s HOURS')
-        ORDER BY 
-            CASE WHEN tweets_parsed = FALSE THEN 0 ELSE 1 END,
-            tweets_parsed_last_timestamp ASC
-        LIMIT %s;
+        WITH selected_users AS (
+            SELECT rest_id, username 
+            FROM users
+            WHERE (llm_check_score is null or llm_check_score > 5) 
+            AND (tweets_parsed = FALSE OR tweets_parsed_last_timestamp < NOW() - INTERVAL '%s HOURS')
+            AND status = 'idle'
+            ORDER BY 
+                CASE WHEN tweets_parsed = FALSE THEN 0 ELSE 1 END,
+                tweets_parsed_last_timestamp ASC
+            LIMIT %s
+            FOR UPDATE SKIP LOCKED
+        )
+        UPDATE users
+        SET status = 'in_progress'
+        FROM selected_users
+        WHERE users.rest_id = selected_users.rest_id
+        RETURNING users.rest_id, users.username;
     """
     return db.run_query(query, (hours, limit_users))
 
 
 def main(account_name):
     last_cookie_update_time = datetime.now()  # Initialize to the current time
-
     account = choose_account(account_name)
     scraper = get_twitter_scraper(account)
 
@@ -91,6 +99,16 @@ def main(account_name):
             except Exception as e:
                 logging.error(f"An error occurred: {e}")
                 logging.error(f"{traceback.format_exc()}")
+                # Reset status to 'idle' for users that were being processed
+                if user_ids:
+                    reset_status_query = """
+                        UPDATE users
+                        SET status = 'idle'
+                        WHERE rest_id IN ({});
+                    """.format(
+                        ", ".join(["%s"] * len(user_ids))
+                    )
+                    db.run_query(reset_status_query, tuple(user_ids))
 
 
 if __name__ == "__main__":

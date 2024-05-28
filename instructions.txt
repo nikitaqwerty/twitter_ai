@@ -1,1 +1,11 @@
+# setup db
 docker run --name my-postgres -e POSTGRES_USER=myuser -e POSTGRES_PASSWORD=mypassword -e POSTGRES_DB=crypto-twitter -p 5432:5432 -d postgres
+
+# add accounts
+echo "rndm_world" > accounts.txt
+echo "LaVicot" >> accounts.txt
+
+#run service batch
+cat accounts.txt | parallel -j 2 "python twitter_ai/infinite_parse.py {} > /dev/null 2> logs/{}_parse.log"
+cat accounts.txt | parallel -j 2 "python twitter_ai/infinite_tweet.py {} > /dev/null 2> logs/{}_tweet.log"
+cat accounts.txt | parallel -j 2 "python twitter_ai/infinite_retweet.py {} > /dev/null 2> logs/{}_retweet.log"

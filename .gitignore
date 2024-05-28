@@ -1,3 +1,4 @@
+logs
 data
 data/*
 data/
@@ -9,6 +10,7 @@ t2.json
 t.json
 *.gif
 context.txt
+accounts.txt
 .env
 .DS_Store
 *.cookies

@@ -9,12 +9,12 @@ import random
 import time
 import re
 import sys
+import argparse
 
 configure_logging()
 
 CYCLE_DELAY = 60 * 60  # Base delay for the cycle in seconds
 COOKIE_UPDATE_INTERVAL = timedelta(hours=24)
-FIRST_ACCOUNT_RUN = False
 
 prompt_template = """
 YOU ARE A HIGHLY INTELLIGENT LANGUAGE MODEL, THE WORLD'S MOST CREATIVE AND ENGAGING CRYPTO TWITTER USER. YOUR TASK IS TO READ THROUGH 75 RANDOM TWEETS ABOUT CRYPTOCURRENCIES, WEB3, AND CRYPTO POSTED TODAY. USING THIS CONTEXT, YOU WILL GENERATE A RANDOM, CREATIVE, AND PROVOCATIVE TWEET ABOUT CRYPTOCURRENCIES OR WEB3. YOUR TWEET SHOULD APPEAR CASUAL AND AUTHENTIC, AS IF WRITTEN BY A REGULAR CRYPTO TWITTER USER, NOT A PROFESSIONAL.
@@ -71,7 +71,7 @@ def fetch_tweets_from_db(db):
             AND tweets.created_at > NOW() - INTERVAL '24 HOURS'
             AND tweet_text !~* '(follow|retweet|reply|comment|giveaway|RT @)'
             AND lang = 'en'
-            AND users.username != 'rndm_world'
+            AND users.rest_id not in (select distinct action_account_id from actions)
             AND (users_mentioned is null or array_length(users_mentioned, 1)  < 3)
             ORDER BY tweets.views DESC
             LIMIT 400
@@ -132,7 +132,7 @@ def summarize_tweets(tweets, llm):
     return initial_llm_response, final_tweet
 
 
-def main(account_name):
+def main(account_name, first_account_run):
     logging.info("Initializing Twitter account.")
     # Initialize OpenAI LLM
     logging.info("Initializing OpenAI LLM.")
@@ -146,7 +146,7 @@ def main(account_name):
     twitter_account = get_twitter_account(account)
 
     with get_db_connection() as db:
-        if FIRST_ACCOUNT_RUN:
+        if first_account_run:
             scraper = get_twitter_scraper(account)
             process_and_insert_users(db, scraper, twitter_account.id)
         while True:
@@ -216,8 +216,14 @@ def main(account_name):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python infinite_tweet.py <account_name>")
-        sys.exit(1)
-    account_name = sys.argv[1]
-    main(account_name)
+    parser = argparse.ArgumentParser(description="Run the infinite_tweet script.")
+    parser.add_argument("account_name", type=str, help="Twitter account name to use.")
+    parser.add_argument(
+        "--first_run",
+        default=False,
+        action="store_true",
+        help="Flag to indicate if this is the first run.",
+    )
+    args = parser.parse_args()
+
+    main(args.account_name, args.first_run)

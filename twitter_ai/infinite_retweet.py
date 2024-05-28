@@ -27,7 +27,7 @@ def fetch_tweets_for_retweet(db):
                 users.llm_check_score > 7
                 -- AND users.followers_count < 30000
                 -- and users.friends_count > 1000
-                AND tweets.created_at > NOW() - INTERVAL '6 HOURS'
+                AND tweets.created_at > NOW() - INTERVAL '24 HOURS'
                 AND tweets.tweet_text !~* '(retweet|reply|comment|giveaway|RT @)'
                 AND tweets.lang = 'en'
                 AND actions.tweet_id IS NULL
