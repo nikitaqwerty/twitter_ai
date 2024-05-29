@@ -120,15 +120,15 @@ def summarize_tweets(tweets, llm):
     prompt = f"{prompt_template} \n\n {tweets_text}"
     initial_llm_response = llm.get_response(prompt)
     logging.info(f"Raw LLM response: {initial_llm_response}")
-    if not initial_llm_response or len(initial_llm_response) > 500:
-        return None, None
+    if not initial_llm_response or len(initial_llm_response) > 600:
+        return prompt, None, None
 
     final_tweet = extract_final_tweet(initial_llm_response, llm)
     if not final_tweet:
         logging.warning(
             "Final tweet extraction failed or tweet did not meet the criteria."
         )
-        return None, None
+        return prompt, None, None
 
     logging.info(f"Extracted final tweet: {final_tweet}")
     return prompt, initial_llm_response, final_tweet
