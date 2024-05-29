@@ -10,7 +10,7 @@ import time
 
 configure_logging()
 
-CYCLE_DELAY = 60 * 45  # Base delay for the cycle in seconds
+CYCLE_DELAY = 60 * 90  # Base delay for the cycle in seconds
 COOKIE_UPDATE_INTERVAL = timedelta(hours=24)
 
 
@@ -19,28 +19,24 @@ def fetch_tweets_for_retweet(db):
         WITH top_tweets AS (
             SELECT 
                 tweets.tweet_id,
-                users.rest_id
+                users.rest_id,
+                actions.tweet_id AS action_tweet_id
             FROM tweets
             JOIN users ON tweets.user_id = users.rest_id
             LEFT JOIN actions ON tweets.tweet_id = actions.tweet_id
             WHERE 
-                users.llm_check_score > 7
+                users.llm_check_score > 8
                 -- AND users.followers_count < 30000
-                -- and users.friends_count > 1000
+                -- AND users.friends_count > 1000
                 AND tweets.created_at > NOW() - INTERVAL '24 HOURS'
                 AND tweets.tweet_text !~* '(retweet|reply|comment|giveaway|RT @)'
                 AND tweets.lang = 'en'
-                AND actions.tweet_id IS NULL
+                and actions.tweet_id IS NULL
             ORDER BY tweets.views DESC
-            LIMIT 10
+            LIMIT 100
         )
         SELECT tweet_id, rest_id
         FROM top_tweets
-        WHERE rest_id NOT IN (
-            SELECT target_user_id 
-            FROM actions 
-            WHERE action_type = 'retweet'
-        )
         ORDER BY random()
         LIMIT 1;
     """
