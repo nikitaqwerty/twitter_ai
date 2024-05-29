@@ -13,7 +13,7 @@ import argparse
 
 configure_logging()
 
-CYCLE_DELAY = 60 * 60  # Base delay for the cycle in seconds
+CYCLE_DELAY = 60 * 90  # Base delay for the cycle in seconds
 COOKIE_UPDATE_INTERVAL = timedelta(hours=24)
 
 prompt_template = """
@@ -130,7 +130,7 @@ def summarize_tweets(tweets, llm):
         return None, None
 
     logging.info(f"Extracted final tweet: {final_tweet}")
-    return initial_llm_response, final_tweet
+    return prompt, initial_llm_response, final_tweet
 
 
 def main(account_name, first_account_run):
@@ -173,13 +173,13 @@ def main(account_name, first_account_run):
                 logging.info("Summarizing tweets.")
                 llm = llm_g4f
                 try:
-                    raw_output, twit = summarize_tweets(tweets, llm)
+                    prompt, raw_output, twit = summarize_tweets(tweets, llm)
                 except Exception as e:
                     logging.error(
                         f"Error with g4fAPIHandler: {e}. Retrying with GroqAPIHandler."
                     )
                     llm = llm_groq
-                    raw_output, twit = summarize_tweets(tweets, llm)
+                    prompt, raw_output, twit = summarize_tweets(tweets, llm)
 
                 if not twit:
                     logging.warning(
@@ -204,7 +204,7 @@ def main(account_name, first_account_run):
                     None,
                     raw_output,
                     llm.model,
-                    prompt_template,
+                    prompt,
                 )
 
                 logging.info("Cycle complete. Waiting for the next cycle.")
