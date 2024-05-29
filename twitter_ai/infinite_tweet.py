@@ -101,7 +101,7 @@ def extract_final_tweet(initial_response, llm):
     final_tweet = final_tweet_response.strip()
 
     # Remove starting and ending quotes if present
-    if final_tweet.startswith('"') and final_tweet.endswith('"'):
+    if final_tweet.startswith(('"', "“")) and final_tweet.endswith(('"', "”")):
         final_tweet = final_tweet[1:-1].strip()
 
     # Check if the tweet meets length criteria
