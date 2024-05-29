@@ -14,3 +14,4 @@ accounts.txt
 .env
 .DS_Store
 *.cookies
+.vscode/launch.json

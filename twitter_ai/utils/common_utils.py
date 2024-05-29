@@ -152,6 +152,14 @@ def fetch_tweets_for_users(
     while retries < max_retries:
         tweets = scraper.tweets(user_ids, limit=20 * limit_pages)
         if tweets and all(isinstance(tweet, dict) for tweet in tweets):
+            # Check if the tweets contain error messages indicating rate limit exceeded
+            if any(
+                "errors" in tweet
+                and any(error["code"] == 88 for error in tweet["errors"])
+                for tweet in tweets
+            ):
+                tweets = None
+        if tweets:
             return tweets
         retries += 1
         wait_time = backoff_factor * (2**retries)
