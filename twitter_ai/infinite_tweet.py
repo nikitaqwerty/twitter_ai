@@ -61,18 +61,19 @@ TWEETS TO ANALYZE:
 def fetch_tweets_from_db(db):
     query = """
         WITH top_tweets AS (
-            SELECT tweet_text, views
+            SELECT tweet_text
             FROM tweets
             JOIN users ON tweets.user_id = users.rest_id
             WHERE 
             length(tweet_text) > 50
-            AND users.llm_check_score > 5
+            AND users.llm_check_score > 6
             AND has_urls = False
             AND tweets.created_at > NOW() - INTERVAL '24 HOURS'
             AND tweet_text !~* '(follow|retweet|reply|comment|giveaway|RT @)'
             AND lang = 'en'
+            and quotes > 0
             AND users.rest_id not in (select distinct action_account_id from actions)
-            AND (users_mentioned is null or array_length(users_mentioned, 1)  < 3)
+            AND (users_mentioned is null or array_length(users_mentioned, 1)  < 3 or users_mentioned::text = '{}')
             ORDER BY tweets.views DESC
             LIMIT 400
         )
