@@ -61,9 +61,9 @@ def analyze_tweets_with_llm(username, bio, tweets, max_retries=5, backoff_factor
     while retries < max_retries:
         try:
             response = groq_llm.get_response(prompt)
-            if (
-                isinstance(response, dict)
-                and response.get("error") == "context_length_exceeded"
+            if isinstance(response, dict) and (
+                response.get("error")
+                in ["rate_limit_exceeded", "context_length_exceeded"]
             ):
                 logging.error(
                     "Context length exceeded, reducing the number of tweets and retrying..."

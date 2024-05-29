@@ -37,6 +37,8 @@ class GroqAPIHandler(APIHandler):
             logging.error(f"GroqAPI error: {error_message}")
             if "context_length_exceeded" in error_message:
                 return {"error": "context_length_exceeded"}
+            if "rate_limit_exceeded" in error_message:
+                return {"error": "rate_limit_exceeded"}
             return None
 
 
