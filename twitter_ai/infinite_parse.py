@@ -55,6 +55,17 @@ def get_users_to_parse(db, hours=48, limit_users=2):
     return db.run_query(query, (hours, limit_users))
 
 
+def reset_status(db, user_ids):
+    reset_status_query = """
+        UPDATE users
+        SET status = 'idle'
+        WHERE rest_id IN ({});
+    """.format(
+        ", ".join(["%s"] * len(user_ids))
+    )
+    db.run_query(reset_status_query, tuple(user_ids))
+
+
 def main(account_name):
     last_cookie_update_time = datetime.now()  # Initialize to the current time
     account = choose_account(account_name)
@@ -83,6 +94,9 @@ def main(account_name):
                     if tweets:
                         save_tweets_to_db(db, tweets)
                         update_user_tweets_status(db, user_ids)
+                    else:
+                        reset_status(db, user_ids)
+
                 else:
                     logging.info(
                         f"No users to pull tweets. Adding new recommended users"
@@ -104,14 +118,7 @@ def main(account_name):
                 logging.error(f"{traceback.format_exc()}")
                 # Reset status to 'idle' for users that were being processed
                 if user_ids:
-                    reset_status_query = """
-                        UPDATE users
-                        SET status = 'idle'
-                        WHERE rest_id IN ({});
-                    """.format(
-                        ", ".join(["%s"] * len(user_ids))
-                    )
-                    db.run_query(reset_status_query, tuple(user_ids))
+                    reset_status(db, user_ids)
 
 
 if __name__ == "__main__":
