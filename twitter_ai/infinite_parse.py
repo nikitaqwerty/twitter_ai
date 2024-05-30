@@ -22,27 +22,61 @@ from utils.config import configure_logging, Config
 
 configure_logging()
 
-USERS_PER_BATCH = 5
+USERS_PER_BATCH = 10
 PAGES_PER_USER = 1
-CYCLE_DELAY = 60  # Base delay for the cycle in seconds
-USERS_UPDATE_HOURS_DELAY = 48
+CYCLE_DELAY = 100  # Base delay for the cycle in seconds
 COOKIE_UPDATE_INTERVAL = timedelta(hours=24)
 
 
-def get_users_to_parse(db, hours=48, limit_users=2):
+def get_users_to_parse(db, dafault_days=30, limit_users=2):
     query = """
-        WITH selected_users AS (
-            SELECT rest_id, username 
+        WITH recent_tweets AS (
+            SELECT
+                user_id,
+                MIN(created_at) AS min_created_at,
+                MAX(created_at) AS max_created_at,
+                COUNT(*) AS tweet_count
+            FROM (
+                SELECT
+                    user_id,
+                    created_at,
+                    ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC) AS rn
+                FROM tweets
+            ) AS subquery
+            WHERE rn <= 20
+            GROUP BY user_id
+        ),
+        user_intervals AS (
+            SELECT
+                users.rest_id,
+                users.username,
+                users.tweets_parsed,
+                users.llm_check_score,
+                users.tweets_parsed_last_timestamp,
+                users.statuses_count,
+                users.status,
+                min_created_at,
+                greatest(max_created_at,tweets_parsed_last_timestamp) AS max_created_at,
+                tweet_count,
+                CASE
+                    WHEN tweet_count < 5 THEN %s * 24 * 60 * 60  -- Default interval in seconds for users with less than 5 tweets
+                    ELSE LEAST(EXTRACT(EPOCH FROM (greatest(max_created_at,tweets_parsed_last_timestamp) - min_created_at)) / tweet_count, (60 * 24 * 60 * 60)::numeric)
+                END AS tweet_interval
             FROM users
-            WHERE (llm_check_score is null or llm_check_score > 5) 
-            AND (tweets_parsed = FALSE OR tweets_parsed_last_timestamp < NOW() - INTERVAL '%s HOURS')
+            LEFT JOIN recent_tweets ON users.rest_id = recent_tweets.user_id
+        ),
+        selected_users AS (
+            SELECT
+                *
+            FROM user_intervals
+            WHERE (llm_check_score IS NULL OR llm_check_score > 4)
+            AND (tweets_parsed = FALSE OR tweets_parsed_last_timestamp < NOW() - INTERVAL '1 second' * tweet_interval * 20)
             AND status = 'idle'
             AND statuses_count > 20
             ORDER BY 
                 CASE WHEN tweets_parsed = FALSE THEN 0 ELSE 1 END DESC,
-                llm_check_score DESC NULLS LAST,
-                tweets_parsed_last_timestamp ASC NULLS LAST,
-                statuses_count DESC
+                tweet_interval asc nulls LAST,
+                llm_check_score DESC NULLS LAST
             LIMIT %s
             FOR UPDATE SKIP LOCKED
         )
@@ -52,7 +86,7 @@ def get_users_to_parse(db, hours=48, limit_users=2):
         WHERE users.rest_id = selected_users.rest_id
         RETURNING users.rest_id, users.username;
     """
-    return db.run_query(query, (hours, limit_users))
+    return db.run_query(query, (dafault_days, limit_users))
 
 
 def reset_status(db, user_ids):
@@ -81,9 +115,7 @@ def main(account_name):
                     scraper = get_twitter_scraper(account, force_login=False)
                     last_cookie_update_time = current_time
 
-                users_to_parse = get_users_to_parse(
-                    db, hours=USERS_UPDATE_HOURS_DELAY, limit_users=USERS_PER_BATCH
-                )
+                users_to_parse = get_users_to_parse(db, limit_users=USERS_PER_BATCH)
                 user_ids = [user[0] for user in users_to_parse]
 
                 if user_ids and user_ids[0]:
