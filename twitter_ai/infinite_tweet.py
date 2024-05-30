@@ -2,7 +2,7 @@ import logging
 from utils.config import Config, configure_logging
 from utils.db_utils import get_db_connection, insert_action, insert_tweets
 from utils.twitter_utils import get_twitter_account, get_twitter_scraper, choose_account
-from utils.common_utils import process_and_insert_users
+from utils.common_utils import process_and_insert_users, remove_https_links
 from llm.llm_api import OpenAIAPIHandler, GroqAPIHandler, g4fAPIHandler
 from datetime import datetime, timedelta
 import random
@@ -117,7 +117,7 @@ def summarize_tweets(tweets, llm):
     tweets_text = "\n=============\n".join([tweet[0] for tweet in tweets])
     logging.debug(f"Summarizing tweets for the prompt. Input tweets: \n{tweets_text}")
 
-    prompt = f"{prompt_template} \n\n {tweets_text}"
+    prompt = remove_https_links(f"{prompt_template} \n\n {tweets_text}")
     initial_llm_response = llm.get_response(prompt)
     logging.info(f"Raw LLM response: {initial_llm_response}")
     if not initial_llm_response or len(initial_llm_response) > 600:

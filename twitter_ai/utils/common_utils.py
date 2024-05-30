@@ -1,6 +1,7 @@
 import logging
 from colorama import Fore, Style
 import time
+import re
 
 # common_utils.py
 
@@ -171,3 +172,22 @@ def fetch_tweets_for_users(
         f"{Fore.RED}Max retries reached for users: {user_ids}. Skipping...{Style.RESET_ALL}"
     )
     return None
+
+
+def remove_https_links(input_str):
+    """
+    This function takes an input string and removes all substrings that are https:// links.
+
+    Args:
+    input_str (str): The input string containing https:// links.
+
+    Returns:
+    str: The input string with all https:// links removed.
+    """
+    # Regex pattern to match https:// links
+    pattern = r"https:\/\/\S+"
+
+    # Substitute all https:// links with an empty string
+    result = re.sub(pattern, "", input_str)
+
+    return result

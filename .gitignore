@@ -15,3 +15,4 @@ accounts.txt
 .DS_Store
 *.cookies
 .vscode/launch.json
+tst.json

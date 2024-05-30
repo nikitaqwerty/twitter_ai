@@ -1,6 +1,7 @@
 import logging
 from utils.db_utils import get_db_connection
 from utils.config import Config, configure_logging
+from utils.common_utils import remove_https_links
 from llm.llm_api import GroqAPIHandler
 from datetime import datetime
 import re
@@ -53,7 +54,9 @@ def fetch_latest_tweets_for_user(db, user_id, limit=20):
 def analyze_tweets_with_llm(username, bio, tweets, max_retries=5, backoff_factor=1):
     def get_prompt_from_tweets(username, bio, tweets_list):
         tweets_text = "\n=============\n".join(tweet[0] for tweet in tweets_list)
-        return prompt_template.format(username=username, bio=bio, tweets=tweets_text)
+        return remove_https_links(
+            prompt_template.format(username=username, bio=bio, tweets=tweets_text)
+        )
 
     prompt = get_prompt_from_tweets(username, bio, tweets)
     retries = 0

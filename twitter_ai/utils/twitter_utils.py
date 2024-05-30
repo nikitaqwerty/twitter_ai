@@ -54,3 +54,11 @@ def choose_account(account_name):
         logging.error(f"Account with name {account_name} not found.")
         return None
     return account
+
+
+if __name__ == "__main__":
+    scraper = get_twitter_scraper(choose_account("986sol"))
+    tweets = scraper.tweets_details(
+        [1795999224145772674, 1795973191325585733], limit=40
+    )
+    print(tweets)
