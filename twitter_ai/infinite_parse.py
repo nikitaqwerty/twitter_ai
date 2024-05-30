@@ -61,7 +61,7 @@ def get_users_to_parse(db, dafault_days=30, limit_users=2):
                 CASE
                     WHEN tweet_count < 5 THEN %s * 24 * 60 * 60  -- Default interval in seconds for users with less than 5 tweets
                     ELSE GREATEST(LEAST(EXTRACT(EPOCH FROM (greatest(max_created_at,tweets_parsed_last_timestamp) - min_created_at)) / tweet_count, (60 * 24 * 60 * 60)::numeric),
-                      (6 * 60 * 60)::numeric))
+                      (6 * 60 * 60)::numeric)
                 END AS tweet_interval
             FROM users
             LEFT JOIN recent_tweets ON users.rest_id = recent_tweets.user_id
