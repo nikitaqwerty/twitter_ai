@@ -47,10 +47,16 @@ def fetch_account_to_unfollow(db, account_id):
         WHERE action_account_id = %s
           AND action_type = 'follow'
           AND created_at + INTERVAL '7 DAYS' < NOW()
+          AND target_user_id NOT IN (
+              SELECT target_user_id
+              FROM actions
+              WHERE action_account_id = %s
+                AND action_type = 'unfollow'
+          )
         ORDER BY created_at ASC
         LIMIT 1;
     """
-    return db.run_query(query, (str(account_id),))
+    return db.run_query(query, (str(account_id), str(account_id)))
 
 
 def follow_account(account, user_id):
@@ -74,6 +80,7 @@ def unfollow_account(account, user_id):
 
 
 def main(account_name):
+    time.sleep(random.uniform(0, 10))
     logging.info("Initializing Twitter account.")
     last_cookie_update_time = datetime.now()  # Initialize to the current time
 
