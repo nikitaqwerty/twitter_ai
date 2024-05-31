@@ -159,7 +159,7 @@ def create_actions_table(db):
         CREATE TABLE IF NOT EXISTS actions (
             action_id SERIAL PRIMARY KEY,
             action_account_id VARCHAR(255) NOT NULL,
-            action_type VARCHAR(50) NOT NULL CHECK (action_type IN ('like', 'tweet', 'retweet', 'reply', 'quote', 'follow')),
+            action_type VARCHAR(50) NOT NULL,
             tweet_id VARCHAR(255),
             target_tweet_id VARCHAR(255),
             target_user_id VARCHAR(255),

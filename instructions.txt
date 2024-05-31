@@ -9,3 +9,5 @@ echo "LaVicot" >> accounts.txt
 cat accounts.txt | parallel -j 3 "python twitter_ai/infinite_parse.py {} > /dev/null 2> logs/{}_parse.log"
 cat accounts.txt | parallel -j 3 "python twitter_ai/infinite_tweet.py {} > /dev/null 2> logs/{}_tweet.log"
 cat accounts.txt | parallel -j 3 "python twitter_ai/infinite_retweet.py {} > /dev/null 2> logs/{}_retweet.log"
+cat accounts.txt | parallel -j 3 "python twitter_ai/infinite_follow.py {} > /dev/null 2> logs/{}_follow.log"
+
