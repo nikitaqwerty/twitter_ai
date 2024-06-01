@@ -28,7 +28,7 @@ CYCLE_DELAY = 100  # Base delay for the cycle in seconds
 COOKIE_UPDATE_INTERVAL = timedelta(hours=24)
 
 
-def get_users_to_parse(db, dafault_days=30, limit_users=2):
+def get_users_to_parse(db, limit_users=2):
     query = """
         WITH recent_tweets AS (
             SELECT
@@ -59,9 +59,9 @@ def get_users_to_parse(db, dafault_days=30, limit_users=2):
                 greatest(max_created_at,tweets_parsed_last_timestamp) AS max_created_at,
                 tweet_count,
                 CASE
-                    WHEN tweet_count < 5 THEN %s * 24 * 60 * 60  -- Default interval in seconds for users with less than 5 tweets
+                    WHEN tweet_count < 5 THEN 150000  -- Default interval in seconds for users with less than 5 tweets
                     ELSE GREATEST(LEAST(EXTRACT(EPOCH FROM (greatest(max_created_at,tweets_parsed_last_timestamp) - min_created_at)) / tweet_count, (60 * 24 * 60 * 60)::numeric),
-                      (6 * 60 * 60)::numeric)
+                      (1100)::numeric)
                 END AS tweet_interval
             FROM users
             LEFT JOIN recent_tweets ON users.rest_id = recent_tweets.user_id
@@ -87,7 +87,7 @@ def get_users_to_parse(db, dafault_days=30, limit_users=2):
         WHERE users.rest_id = selected_users.rest_id
         RETURNING users.rest_id, users.username;
     """
-    return db.run_query(query, (dafault_days, limit_users))
+    return db.run_query(query, (limit_users,))
 
 
 def reset_status(db, user_ids):
