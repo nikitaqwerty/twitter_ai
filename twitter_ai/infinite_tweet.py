@@ -194,19 +194,39 @@ def main(account_name, first_account_run):
                 # Post tweet
                 logging.info("Posting tweet.")
                 resp = twitter_account.tweet(twit)
-                tweet_results = resp["data"]["create_tweet"]["tweet_results"]["result"]
-                insert_tweets(db, tweet_results)
-                insert_action(
-                    db,
-                    twitter_account.id,
-                    "tweet",
-                    tweet_results["rest_id"],
-                    None,
-                    None,
-                    raw_output,
-                    llm.model,
-                    prompt,
-                )
+
+                # Check if the 'create_tweet' key exists in the response
+                if "create_tweet" in resp["data"]:
+                    tweet_results = resp["data"]["create_tweet"]["tweet_results"][
+                        "result"
+                    ]
+                    insert_tweets(db, tweet_results)
+                    insert_action(
+                        db,
+                        twitter_account.id,
+                        "tweet",
+                        tweet_results["rest_id"],
+                        None,
+                        None,
+                        raw_output,
+                        llm.model,
+                        prompt,
+                    )
+                else:
+                    logging.error(
+                        "The key 'create_tweet' was not found in the response."
+                    )
+                    insert_action(
+                        db,
+                        twitter_account.id,
+                        "tweet",
+                        None,
+                        None,
+                        None,
+                        raw_output,
+                        llm.model,
+                        prompt,
+                    )
 
                 logging.info("Cycle complete. Waiting for the next cycle.")
                 random_sleep_time = random.uniform(CYCLE_DELAY * 0.5, CYCLE_DELAY * 1.5)
@@ -214,7 +234,7 @@ def main(account_name, first_account_run):
 
             except Exception as e:
                 logging.error(f"An error occurred: {e}", exc_info=True)
-                time.sleep(60)  # Sleep for 1 minute before retrying
+                time.sleep(600)  # Sleep for 10 minute before retrying
 
 
 if __name__ == "__main__":
