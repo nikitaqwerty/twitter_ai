@@ -100,6 +100,8 @@ def save_users_recommendations_by_ids(db, scraper, user_ids):
 
 
 def save_tweets_to_db(db, all_pages):
+    total_inserted_tweets = 0  # Initialize a counter for inserted tweets
+
     for page in all_pages:
         if not isinstance(page, list):
             page = [page]
@@ -129,9 +131,13 @@ def save_tweets_to_db(db, all_pages):
                                     "tweet_results"
                                 ]["result"]
                                 if "rest_id" in tweet_results:
-                                    insert_tweets(db, tweet_results)
+                                    inserted_tweets = insert_tweets(db, tweet_results)
+                                    total_inserted_tweets += inserted_tweets
                                 elif "tweet" in tweet_results:
-                                    insert_tweets(db, tweet_results["tweet"])
+                                    inserted_tweets = insert_tweets(
+                                        db, tweet_results["tweet"]
+                                    )
+                                    total_inserted_tweets += inserted_tweets
                                 else:
                                     logging.error(
                                         f"{Fore.RED}rest_id not in tweet data: {entry}{Style.RESET_ALL}"
@@ -144,6 +150,8 @@ def save_tweets_to_db(db, all_pages):
                                 logging.error(
                                     f"{Fore.RED}Unexpected error: {e} - tweet data: {entry}{Style.RESET_ALL}"
                                 )
+
+    return total_inserted_tweets  # Return the total number of inserted tweets
 
 
 def fetch_tweets_for_users(

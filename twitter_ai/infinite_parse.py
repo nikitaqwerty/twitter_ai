@@ -125,8 +125,11 @@ def main(account_name):
                         scraper, user_ids, limit_pages=PAGES_PER_USER
                     )
                     if tweets:
-                        save_tweets_to_db(db, tweets)
-                        update_user_tweets_status(db, user_ids)
+                        inserted_tweets_count = save_tweets_to_db(db, tweets)
+                        if inserted_tweets_count > 0:
+                            update_user_tweets_status(db, user_ids)
+                        else:
+                            reset_status(db, user_ids)
                     else:
                         reset_status(db, user_ids)
 
