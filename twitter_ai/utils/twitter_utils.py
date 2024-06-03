@@ -57,8 +57,8 @@ def choose_account(account_name):
 
 
 if __name__ == "__main__":
-    scraper = get_twitter_scraper(choose_account("986sol"))
-    tweets = scraper.tweets_details(
-        [1795999224145772674, 1795973191325585733], limit=40
-    )
-    print(tweets)
+    scraper = get_twitter_scraper(choose_account("rndm_world"), force_login=True)
+    # tweets = scraper.tweets_details(
+    #     [1795999224145772674, 1795973191325585733], limit=40
+    # )
+    # print(tweets)
