@@ -196,7 +196,7 @@ def main(account_name, first_account_run):
                 resp = twitter_account.tweet(twit)
 
                 # Check if the 'create_tweet' key exists in the response
-                if "create_tweet" in resp["data"]:
+                if "data" in resp and "create_tweet" in resp["data"]:
                     tweet_results = resp["data"]["create_tweet"]["tweet_results"][
                         "result"
                     ]
