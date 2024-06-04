@@ -138,8 +138,8 @@ def main(account_name, first_account_run):
     logging.info("Initializing Twitter account.")
     # Initialize OpenAI LLM
     logging.info("Initializing OpenAI LLM.")
-    # llm = OpenAIAPIHandler(Config.OPENAI_API_KEY, model="gpt-4o")
-    llm_g4f = g4fAPIHandler(model="gpt-4o", cookies_dir=Config.COOKIES_DIR)
+    llm_g4f = OpenAIAPIHandler(Config.OPENAI_API_KEY, model="gpt-4o")
+    # llm_g4f = g4fAPIHandler(model="gpt-4o", cookies_dir=Config.COOKIES_DIR)
     llm_groq = GroqAPIHandler(Config.GROQ_API_KEY, model="llama3-70b-8192")
 
     last_cookie_update_time = datetime.now()  # Initialize to the current time

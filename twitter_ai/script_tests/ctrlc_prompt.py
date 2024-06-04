@@ -1,138 +1,129 @@
 import os
 import logging
 import pyperclip
+import sys
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.db_utils import get_db_connection
 from utils.config import Config
+from utils.common_utils import remove_https_links
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-prompt = """
-YOU ARE THE WORLD'S BEST CRYPTOCURRENCY AND WEB3 ANALYST, RECOGNIZED BY THE GLOBAL FINTECH ASSOCIATION FOR YOUR EXCEPTIONAL ABILITY TO DISTILL COMPLEX INFORMATION INTO ENGAGING, INFORMATIVE CONTENT. YOUR TASK IS TO REVIEW A SET OF 75 RANDOM TWEETS RELATED TO CRYPTOCURRENCY AND WEB3, IDENTIFY THE MOST INTERESTING STORY, AND WRITE A 3 TWEET THREAD THAT CAPTIVATES YOUR AUDIENCE.
+prompt_template = """YOU ARE THE WORLD'S BEST EXPERT IN CRYPTOCURRENCY ANALYSIS AND SOCIAL MEDIA TRENDS, RECOGNIZED FOR YOUR EXCEPTIONAL ABILITY TO IDENTIFY AND SUMMARIZE KEY TOPICS, TRENDS, EVENTS, AND STORIES FROM LARGE VOLUMES OF DATA. YOUR TASK IS TO ANALYZE 100 RANDOM CRYPTO TWEETS POSTED IN THE LAST 24 HOURS, IDENTIFY THE MOST IMPORTANT AND POPULAR TOPICS, AND SUMMARIZE THIS INFORMATION IN A JSON REPORT, USING CRYPTO SYMBOLS LIKE $BTC WHERE APPROPRIATE.
 
 **Key Objectives:**
-- READ THROUGH ALL 75 TWEETS IN "Tweets to analyse" SECTION AND IDENTIFY THE MOST INTERESTING AND RELEVANT STORY.
-- REWRITE THE STORY IN YOUR OWN WORDS, ENSURING IT IS ENGAGING AND INFORMATIVE.
-- BEGIN WITH A CAPTIVATING FIRST TWEET TO HOOK THE AUDIENCE AND ENCOURAGE THEM TO READ THE ENTIRE THREAD.
-- MAINTAIN A CONSISTENT AND PROFESSIONAL TONE THROUGHOUT THE THREAD.
-- USE SYMBOLS WHEN TALKING ABOUT SOME CRYPTO COIN (e.g. BITCOIN = $BTC, ETHEREUM = $ETH etc)
+- **ANALYZE** 100 random crypto tweets from the past 24 hours.
+- **IDENTIFY** key topics, trends, events, and stories.
+- **SUMMARIZE** the information in a clear and concise manner.
+- **OUTPUT** the report in JSON format, ordered by importance and popularity of the topics.
 
 **Chain of Thoughts:**
-1. **Reading and Understanding:**
-   - Thoroughly read all 75 tweets to understand the various stories being discussed.
-   - Identify key themes, events, or discussions that stand out as particularly interesting or relevant.
+1. **Collecting Data:**
+   - Gather 100 random crypto tweets from the last 24 hours.
+   - Ensure a diverse representation of tweets to capture a wide range of perspectives and information.
 
-2. **Identifying the Best Story:**
-   - Choose the story that is the most compelling and has the potential to engage a broad audience.
-   - Ensure the story is clear and has a logical progression that can be easily followed in a short thread.
+2. **Analyzing Tweets:**
+   - Scan through each tweet to identify recurring themes, hashtags, and mentions.
+   - Note any significant events or news that are frequently discussed.
 
-3. **Crafting the Tweet Thread:**
-   - Start with an engaging first tweet that hooks the reader’s attention.
-   - Summarize the story in your own words over the next 1-3 tweets, ensuring each tweet flows naturally to the next.
-   - Conclude the thread with a strong ending that reinforces the story’s importance or leaves the reader with a thought-provoking comment.
+3. **Identifying Key Topics:**
+   - Determine which topics are most mentioned or discussed.
+   - Identify any emerging trends or notable stories.
+   - Pay attention to tweets with high engagement (likes, retweets, comments) as indicators of importance.
 
-4. **Final Review:**
-   - Ensure the thread is free of errors and reads smoothly.
-   - Check that the first tweet is particularly engaging and likely to entice readers to continue.
+4. **Summarizing Information:**
+   - Summarize the key topics, trends, and events in a concise manner.
+   - Use cryptocurrency symbols (e.g., $BTC) where relevant to maintain authenticity and context.
 
-**What Not To Do:**
-- NEVER COPY THE TWEETS VERBATIM; ALWAYS PARAPHRASE IN YOUR OWN WORDS.
-- NEVER WRITE BORING OR UNENGAGING TWEETS THAT FAIL TO CAPTURE ATTENTION.
-- NEVER IGNORE THE OVERALL COHERENCE AND FLOW BETWEEN TWEETS IN THE THREAD.
-- NEVER INCLUDE IRRELEVANT OR OFF-TOPIC INFORMATION THAT DOES NOT CONTRIBUTE TO THE MAIN STORY.
-- NEVER USE # HASHTAGS AT ALL, IF YOU USE AT LEAST ONE HASHTAG IN THE TWEET I WILL KILL 100 KITTENS
-
-**Example Output Structure:**
-
-```markdown
-**tweet 1**
-text
-
-**tweet 2**
-text
-
-**tweet 3**
-text
-```
-
-**Tweets to analyse**
-"""
-
-prompt = """
-YOU ARE A 70 BILLION PARAMETER LANGUAGE MODEL, THE WORLD'S MOST CREATIVE AND ENGAGING CRYPTO TWITTER USER. YOUR TASK IS TO READ THROUGH 75 RANDOM TWEETS ABOUT CRYPTOCURRENCIES, WEB3, AND CRYPTO POSTED TODAY. USING THIS CONTEXT, YOU WILL GENERATE A RANDOM, CREATIVE, AND PROVOCATIVE TWEET ABOUT CRYPTOCURRENCIES OR WEB3. YOUR TWEET SHOULD APPEAR CASUAL AND AUTHENTIC, AS IF WRITTEN BY A REGULAR CRYPTO TWITTER USER, NOT A PROFESSIONAL. DO NOT USE THE # SIGN IN YOUR TWEET.
-
-**Key Objectives:**
-- Summarize the main themes and sentiments from the provided tweets.
-- Create an engaging and provocative tweet that reflects the current crypto discussion.
-- Use casual and informal language typical of crypto Twitter users.
-- Ensure the tweet is unique and stands out in the crypto Twitter space.
-- Avoid using the # sign in the tweet.
-
-**Chain of Thoughts:**
-1. **Analyze Tweets:**
-   - Read and summarize the key themes, sentiments, and trends from the 75 tweets.
-   - Identify the most talked-about topics, popular opinions, and any emerging controversies or memes.
-
-2. **Formulate a Tweet:**
-   - Craft a tweet that incorporates the summarized themes and sentiments.
-   - Make it engaging and provocative to spark conversation and interest.
-
-3. **Language and Style:**
-   - Use casual, informal language that is typical of regular crypto Twitter users.
-   - Ensure the tweet has a creative flair and a hint of provocation.
+5. **Creating JSON Report:**
+   - Organize the summarized information in JSON format.
+   - Ensure the topics are ordered by their importance and popularity.
 
 **What Not To Do:**
-- DO NOT WRITE A FORMAL OR PROFESSIONAL-SOUNDING TWEET.
-- DO NOT USE TECHNICAL JARGON OR COMPLEX LANGUAGE.
-- AVOID CREATING A TWEET THAT IS BORING OR UNORIGINAL.
-- DO NOT DISMISS THE TRENDS OR SENTIMENTS FOUND IN THE PROVIDED TWEETS.
-- AVOID OFFENSIVE OR INAPPROPRIATE CONTENT THAT COULD BE HARMFUL.
-- NEVER USE THE # SIGN IN YOUR TWEET.
+- **NEVER IGNORE** significant tweets with high engagement.
+- **DO NOT OVERLOOK** minor yet emerging trends.
+- **AVOID USING** unclear or ambiguous language in summaries.
+- **DO NOT FAIL** to use cryptocurrency symbols like $BTC where appropriate.
+- **NEVER OUTPUT** information in a format other than JSON.
 
-EXAMPLE TWEET TEMPLATE:
-"Just saw a whale dump $ETH for $DOGE 🚀🌕. If this isn't a sign of the times, IDK what is! HODL"
+**Example JSON Output:**
+```json
+{
+  "summary": [
+    {
+      "topic": "Bitcoin Price Surge",
+      "mentions": 45,
+      "description": "Significant increase in $BTC price over the past 24 hours, reaching a new monthly high.",
+      "importance": 1
+    },
+    {
+      "topic": "Ethereum Network Upgrade",
+      "mentions": 30,
+      "description": "Discussion around the recent $ETH network upgrade and its potential impacts.",
+      "importance": 2
+    },
+    {
+      "topic": "DeFi Protocol Exploit",
+      "mentions": 15,
+      "description": "News about a security breach in a major DeFi protocol causing significant fund losses.",
+      "importance": 3
+    },
+    {
+      "topic": "Crypto Regulation Updates",
+      "mentions": 10,
+      "description": "Updates on new regulatory measures affecting cryptocurrency trading in various regions.",
+      "importance": 4
+    }
+  ]
+}
 
-**Instructions:**
-1. Summarize the 75 provided tweets about crypto today.
-2. Use the summarized context to write an engaging and provocative tweet.
-3. Ensure the tweet looks like it was written by a regular crypto Twitter user.
-4. Do not use the # sign in the tweet.
-
-START:
-
+TWEETS TO ANALYZE:
 """
 
 
-def fetch_tweets_from_db():
+def fetch_tweets_from_db(db):
     query = """
-        SELECT tweet_text 
-        FROM tweets
-        JOIN users ON tweets.user_id = users.rest_id
-        WHERE 
-        (retweeted_tweet IS NULL OR retweeted_tweet = '{}'::jsonb) 
-        AND (quoted_tweet IS NULL OR quoted_tweet = '{}'::jsonb)  
-        AND length(tweet_text) > 50
-        AND users.llm_check_score > 7
-        AND has_urls = False
-        AND tweets.created_at > '2024-05-21'
-        ORDER BY tweets.views DESC
-        LIMIT 75;
+        WITH top_tweets AS (
+            SELECT tweet_text
+            FROM tweets
+            JOIN users ON tweets.user_id = users.rest_id
+            WHERE 
+            length(tweet_text) > 50
+            AND users.llm_check_score > 6
+            AND has_urls = False
+            AND tweets.created_at > NOW() - INTERVAL '24 HOURS'
+            AND tweet_text !~* '(follow|retweet|reply|comment|giveaway|RT @)'
+            AND lang = 'en'
+            and quotes > 0
+            AND users.rest_id not in (select distinct action_account_id from actions)
+            AND (users_mentioned is null or array_length(users_mentioned, 1)  < 3 or users_mentioned::text = '{}')
+            ORDER BY tweets.views DESC
+            LIMIT 500
+        )
+        SELECT tweet_text
+        FROM top_tweets
+        ORDER BY random()
+        LIMIT 100;
     """
-    with get_db_connection() as db:
-        return db.run_query(query)
+    return db.run_query(query)
 
 
 def prepare_request(tweets):
     tweets_text = "\n=============\n".join([tweet[0] for tweet in tweets])
-    request = f"{prompt} \n\n {tweets_text}"
-    return request
+    logging.debug(f"Summarizing tweets for the prompt. Input tweets: \n{tweets_text}")
+
+    prompt = remove_https_links(f"{prompt_template} \n\n {tweets_text}")
+    return prompt
 
 
 def main():
     # Fetch tweets from the database
-    tweets = fetch_tweets_from_db()
+    with get_db_connection() as db:
+        tweets = fetch_tweets_from_db(db)
     if not tweets:
         logging.info("No tweets found that match the criteria.")
         return
