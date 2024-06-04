@@ -29,9 +29,10 @@ def fetch_tweets_for_retweet(db):
                 -- AND users.followers_count < 30000
                 -- AND users.friends_count > 1000
                 AND tweets.created_at > NOW() - INTERVAL '24 HOURS'
-                AND tweets.tweet_text !~* '(retweet|reply|comment|giveaway|RT @)'
+                AND tweet_text !~* '(farm|follow|retweet|reply|comment|giveaway|RT @)'
                 AND tweets.lang = 'en'
                 and actions.tweet_id IS NULL
+                AND (symbols is null or array_length(symbols, 1)  < 4 or symbols::text = '{}')
             ORDER BY tweets.views DESC
             LIMIT 100
         )

@@ -68,11 +68,12 @@ def fetch_tweets_from_db(db):
             AND users.llm_check_score > 6
             AND has_urls = False
             AND tweets.created_at > NOW() - INTERVAL '24 HOURS'
-            AND tweet_text !~* '(follow|retweet|reply|comment|giveaway|RT @)'
+            AND tweet_text !~* '(farm|follow|retweet|reply|comment|giveaway|RT @)'
             AND lang = 'en'
-            and quotes > 0
+            AND quotes > 0
             AND users.rest_id not in (select distinct action_account_id from actions)
             AND (users_mentioned is null or array_length(users_mentioned, 1)  < 3 or users_mentioned::text = '{}')
+            AND (symbols is null or array_length(symbols, 1)  < 4 or symbols::text = '{}')
             ORDER BY tweets.views DESC
             LIMIT 400
         )

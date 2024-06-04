@@ -20,6 +20,7 @@ prompt_template = """YOU ARE THE WORLD'S BEST EXPERT IN CRYPTOCURRENCY ANALYSIS 
 - **IDENTIFY** key topics, trends, events, and stories.
 - **SUMMARIZE** the information in a clear and concise manner.
 - **OUTPUT** the report in JSON format, ordered by importance and popularity of the topics.
+- **LIMIT** the report to a maximum of 3 topics, ensuring summarized but comprehensive information.
 
 **Chain of Thoughts:**
 1. **Collecting Data:**
@@ -33,18 +34,19 @@ prompt_template = """YOU ARE THE WORLD'S BEST EXPERT IN CRYPTOCURRENCY ANALYSIS 
 3. **Identifying Key Topics:**
    - Determine which topics are most mentioned or discussed.
    - Identify any emerging trends or notable stories.
-   - Pay attention to tweets with high engagement (likes, retweets, comments) as indicators of importance.
 
 4. **Summarizing Information:**
-   - Summarize the key topics, trends, and events in a concise manner.
+   - Summarize the key topics, trends, and events in a informative manner.
    - Use cryptocurrency symbols (e.g., $BTC) where relevant to maintain authenticity and context.
+   - Ensure the summary is comprehensive, focusing on key details.
+   - Write this summary like it is a newsletter article for CoinDesk or any big crypto journal
 
 5. **Creating JSON Report:**
    - Organize the summarized information in JSON format.
    - Ensure the topics are ordered by their importance and popularity.
+   - Limit the report to a maximum of 3 topics.
 
 **What Not To Do:**
-- **NEVER IGNORE** significant tweets with high engagement.
 - **DO NOT OVERLOOK** minor yet emerging trends.
 - **AVOID USING** unclear or ambiguous language in summaries.
 - **DO NOT FAIL** to use cryptocurrency symbols like $BTC where appropriate.
@@ -53,30 +55,21 @@ prompt_template = """YOU ARE THE WORLD'S BEST EXPERT IN CRYPTOCURRENCY ANALYSIS 
 **Example JSON Output:**
 ```json
 {
-  "summary": [
+  "trends": [
     {
-      "topic": "Bitcoin Price Surge",
-      "mentions": 45,
-      "description": "Significant increase in $BTC price over the past 24 hours, reaching a new monthly high.",
+      "topic": "{topic1}",
+      "summary": "{summary}",
       "importance": 1
     },
     {
-      "topic": "Ethereum Network Upgrade",
-      "mentions": 30,
-      "description": "Discussion around the recent $ETH network upgrade and its potential impacts.",
+      "topic": "{topic2}",
+      "summary": "{summary}",
       "importance": 2
     },
     {
-      "topic": "DeFi Protocol Exploit",
-      "mentions": 15,
-      "description": "News about a security breach in a major DeFi protocol causing significant fund losses.",
+      "topic": "{topic3}",
+      "summary": "{summary}",
       "importance": 3
-    },
-    {
-      "topic": "Crypto Regulation Updates",
-      "mentions": 10,
-      "description": "Updates on new regulatory measures affecting cryptocurrency trading in various regions.",
-      "importance": 4
     }
   ]
 }
@@ -96,11 +89,12 @@ def fetch_tweets_from_db(db):
             AND users.llm_check_score > 6
             AND has_urls = False
             AND tweets.created_at > NOW() - INTERVAL '24 HOURS'
-            AND tweet_text !~* '(follow|retweet|reply|comment|giveaway|RT @)'
+            AND tweet_text !~* '(farm|follow|retweet|reply|comment|giveaway|RT @)'
             AND lang = 'en'
             and quotes > 0
             AND users.rest_id not in (select distinct action_account_id from actions)
             AND (users_mentioned is null or array_length(users_mentioned, 1)  < 3 or users_mentioned::text = '{}')
+            AND (symbols is null or array_length(symbols, 1)  < 3 or symbols::text = '{}')
             ORDER BY tweets.views DESC
             LIMIT 500
         )
@@ -112,7 +106,7 @@ def fetch_tweets_from_db(db):
     return db.run_query(query)
 
 
-def prepare_request(tweets):
+def prepare_request(tweets)
     tweets_text = "\n=============\n".join([tweet[0] for tweet in tweets])
     logging.debug(f"Summarizing tweets for the prompt. Input tweets: \n{tweets_text}")
 
