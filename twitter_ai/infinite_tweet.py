@@ -64,7 +64,18 @@ def fetch_tweets_from_db(db):
             FROM tweets
             JOIN users ON tweets.user_id = users.rest_id
             WHERE 
-            length(tweet_text) > 50
+            length(
+                regexp_replace(
+                    regexp_replace(
+                        regexp_replace(
+                            regexp_replace(tweet_text, 'https?://[^\s]+', '', 'g'), 
+                            '@[A-Za-z0-9_]+', '', 'g'
+                        ), 
+                        '\$[A-Za-z0-9]+', '', 'g'
+                    ), 
+                    '#[A-Za-z0-9_]+', '', 'g'
+                )
+            ) > 50            
             AND users.llm_check_score > 6
             AND has_urls = False
             AND tweets.created_at > NOW() - INTERVAL '24 HOURS'
