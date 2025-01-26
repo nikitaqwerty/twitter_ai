@@ -18,7 +18,7 @@ load_dotenv()
 
 class Config:
     DB_HOST = os.getenv("DB_HOST", "localhost")
-    DB_NAME = os.getenv("DB_NAME", "crypto-twitter")
+    DB_NAME = os.getenv("DB_NAME", "crypto_twitter")
     DB_USER = os.getenv("DB_USER", "myuser")
     DB_PASSWORD = os.getenv("DB_PASSWORD", "mypassword")
     GROQ_API_KEY = os.getenv("GROQ_API_KEY")

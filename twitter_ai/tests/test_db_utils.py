@@ -12,7 +12,7 @@ class TestGetMostMentionedNewUsers(unittest.TestCase):
     def setUp(self):
         self.db = Database(
             host="localhost",
-            database="crypto-twitter",
+            database="crypto_twitter",
             user="myuser",
             password="mypassword",
         )

@@ -10,7 +10,7 @@ configure_logging()
 def get_db_connection():
     db_params = {
         "host": os.getenv("DB_HOST", "localhost"),
-        "database": os.getenv("DB_NAME", "crypto-twitter"),
+        "database": os.getenv("DB_NAME", "crypto_twitter"),
         "user": os.getenv("DB_USER", "myuser"),
         "password": os.getenv("DB_PASSWORD", "mypassword"),
     }
