@@ -22,9 +22,9 @@ from utils.config import configure_logging, Config
 
 configure_logging()
 
-USERS_PER_BATCH = 10
+USERS_PER_BATCH = 50
 PAGES_PER_USER = 1
-CYCLE_DELAY = 100  # Base delay for the cycle in seconds
+CYCLE_DELAY = 0.1  # Base delay for the cycle in seconds
 COOKIE_UPDATE_INTERVAL = timedelta(hours=24)
 
 
@@ -103,17 +103,22 @@ def reset_status(db, user_ids):
 
 def main(account_name=None):
     last_cookie_update_time = datetime.now()  # Initialize to the current time
-    scraper = get_twitter_scraper(account_name) if account_name else get_twitter_scraper()
+    account = choose_account(account_name) if account_name else None
 
     with get_db_connection() as db:
         while True:
             try:
                 current_time = datetime.now()
                 # Check if 24 hours have passed since the last cookie update
-                if account_name and current_time - last_cookie_update_time >= COOKIE_UPDATE_INTERVAL:
+                if (
+                    account
+                    and current_time - last_cookie_update_time >= COOKIE_UPDATE_INTERVAL
+                ):
                     logging.info("24 hours have passed, updating cookies.")
-                    scraper = get_twitter_scraper(account_name, force_login=False)
+                    scraper = get_twitter_scraper(account, force_login=False)
                     last_cookie_update_time = current_time
+
+                scraper = get_twitter_scraper(account)
 
                 users_to_parse = get_users_to_parse(db, limit_users=USERS_PER_BATCH)
                 user_ids = [user[0] for user in users_to_parse]
