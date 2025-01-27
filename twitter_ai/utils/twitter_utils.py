@@ -1,5 +1,8 @@
+# twitter_utils.py
+
 from twitter.scraper import Scraper
 from twitter.account import Account
+from twitter.util import init_session
 
 try:
     from utils.config import Config
@@ -17,17 +20,25 @@ logging.basicConfig(
 )
 
 
-def get_twitter_scraper(account, force_login=False):
+def get_twitter_scraper(account=None, force_login=False):
     try:
-        if force_login:
+        if account and force_login:
             raise Exception("Forced login to refresh cookies.")
-        scraper = Scraper(cookies=f"{account['login']}.cookies")
-        logging.info("Loaded scraper from cookies.")
+        if account:
+            scraper = Scraper(cookies=f"{account['login']}.cookies")
+            logging.info("Loaded scraper from cookies.")
+        else:
+            scraper = Scraper(session=init_session())
+            logging.info("Initialized guest session.")
     except Exception as e:
         logging.error(f"Failed to load scraper from cookies: {e}")
-        scraper = Scraper(account["email"], account["login"], account["password"])
-        scraper.save_cookies()
-        logging.info("Logged in and saved scraper cookies.")
+        if account:
+            scraper = Scraper(account["email"], account["login"], account["password"])
+            scraper.save_cookies()
+            logging.info("Logged in and saved scraper cookies.")
+        else:
+            scraper = Scraper(session=init_session())
+            logging.info("Initialized guest session.")
     return scraper
 
 

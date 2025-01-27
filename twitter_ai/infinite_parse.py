@@ -101,19 +101,18 @@ def reset_status(db, user_ids):
     db.run_query(reset_status_query, tuple(user_ids))
 
 
-def main(account_name):
+def main(account_name=None):
     last_cookie_update_time = datetime.now()  # Initialize to the current time
-    account = choose_account(account_name)
-    scraper = get_twitter_scraper(account)
+    scraper = get_twitter_scraper(account_name) if account_name else get_twitter_scraper()
 
     with get_db_connection() as db:
         while True:
             try:
                 current_time = datetime.now()
                 # Check if 24 hours have passed since the last cookie update
-                if current_time - last_cookie_update_time >= COOKIE_UPDATE_INTERVAL:
+                if account_name and current_time - last_cookie_update_time >= COOKIE_UPDATE_INTERVAL:
                     logging.info("24 hours have passed, updating cookies.")
-                    scraper = get_twitter_scraper(account, force_login=False)
+                    scraper = get_twitter_scraper(account_name, force_login=False)
                     last_cookie_update_time = current_time
 
                 users_to_parse = get_users_to_parse(db, limit_users=USERS_PER_BATCH)
@@ -161,7 +160,7 @@ if __name__ == "__main__":
     import sys
 
     if len(sys.argv) < 2:
-        print("Usage: python infinite_parse.py <account_name>")
+        print("Usage: python infinite_parse.py [<account_name>]")
         sys.exit(1)
-    account_name = sys.argv[1]
+    account_name = sys.argv[1] if len(sys.argv) > 1 else None
     main(account_name)
