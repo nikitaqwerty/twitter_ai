@@ -1,3 +1,4 @@
+from collections import deque
 from twitter.scraper import Scraper
 from twitter.account import Account
 from twitter.util import init_session
@@ -18,9 +19,8 @@ logging.basicConfig(
 
 class ProxyManager:
     def __init__(self):
-        self.proxies = []
+        self.proxies = deque()
         self.last_refresh = datetime(1970, 1, 1)
-        self.current_index = 0
         self.refresh_interval = timedelta(minutes=5)
         self.bad_proxies = set()
         self.proxy_lock = False
@@ -100,13 +100,16 @@ class ProxyManager:
             if not self.proxies:
                 raise RuntimeError("No proxies available")
 
-            self.current_index = (self.current_index + 1) % len(self.proxies)
-            proxy = self.proxies[self.current_index]
+            proxy = self.proxies.popleft()
 
             if proxy in self.bad_proxies:
                 continue
 
             return proxy
+
+    def requeue_proxy(self, proxy):
+        """Re-add working proxy to end of queue"""
+        self.proxies.append(proxy)
 
 
 PROXY_MANAGER = ProxyManager()
@@ -116,12 +119,12 @@ def get_twitter_scraper(account=None, force_login=False):
     attempt = 0
     while True:
         attempt += 1
-        proxy = None  # Initialize here first
+        proxy = None
         session = None
         try:
             proxy = PROXY_MANAGER.get_next_proxy()
             session = init_session(proxy=proxy)
-            session.verify = False  # Disable SSL verification
+            session.verify = False
             session.proxies = {
                 "http": f"http://{proxy}",
                 "https": f"http://{proxy}",
@@ -145,18 +148,15 @@ def get_twitter_scraper(account=None, force_login=False):
                 scraper = Scraper(session=session)
 
             logging.info(f"Successfully connected via proxy: {proxy}")
+            PROXY_MANAGER.requeue_proxy(proxy)
             return scraper
 
         except Exception as e:
             logging.error(f"Connection attempt {attempt} failed: {str(e)}")
-            if proxy:  # Now safely referenced
+            if proxy:
                 PROXY_MANAGER.bad_proxies.add(proxy)
             if session:
                 session.close()
-            # if attempt == 2:
-            #     raise RuntimeError(
-            #         "Failed to establish proxy connection after 3 attempts"
-            #     )
 
 
 def get_twitter_account(account):
@@ -175,6 +175,7 @@ def get_twitter_account(account):
             )
             account.save_cookies()
             logging.info(f"Authenticated account via proxy: {proxy}")
+            PROXY_MANAGER.requeue_proxy(proxy)
             return account
         except Exception as e:
             logging.error(f"Account auth attempt {attempt+1} failed: {str(e)}")
