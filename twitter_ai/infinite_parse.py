@@ -1,6 +1,3 @@
-# infinite_parse.py
-
-import os
 import time
 import logging
 import traceback
@@ -15,7 +12,6 @@ from utils.twitter_utils import get_twitter_scraper, choose_account
 from utils.common_utils import (
     fetch_tweets_for_users,
     save_tweets_to_db,
-    save_users_recommendations_by_ids,
     process_and_insert_users,
 )
 from utils.config import configure_logging, Config
@@ -91,6 +87,8 @@ def get_users_to_parse(db, limit_users=2):
 
 
 def reset_status(db, user_ids):
+    if not user_ids:
+        return
     reset_status_query = """
         UPDATE users
         SET status = 'idle'
@@ -102,14 +100,14 @@ def reset_status(db, user_ids):
 
 
 def main(account_name=None):
-    last_cookie_update_time = datetime.now()  # Initialize to the current time
+    last_cookie_update_time = datetime.now()
     account = choose_account(account_name) if account_name else None
 
     with get_db_connection() as db:
         while True:
+            user_ids = []  # Initialize here to prevent UnboundLocalError
             try:
                 current_time = datetime.now()
-                # Check if 24 hours have passed since the last cookie update
                 if (
                     account
                     and current_time - last_cookie_update_time >= COOKIE_UPDATE_INTERVAL
@@ -123,7 +121,7 @@ def main(account_name=None):
                 users_to_parse = get_users_to_parse(db, limit_users=USERS_PER_BATCH)
                 user_ids = [user[0] for user in users_to_parse]
 
-                if user_ids and user_ids[0]:
+                if user_ids:
                     logging.info(f"Processing users: {user_ids}")
                     tweets = fetch_tweets_for_users(
                         scraper, user_ids, limit_pages=PAGES_PER_USER
@@ -136,10 +134,9 @@ def main(account_name=None):
                             reset_status(db, user_ids)
                     else:
                         reset_status(db, user_ids)
-
                 else:
                     logging.info(
-                        f"No users to pull tweets. Adding new recommended users"
+                        "No users to pull tweets. Adding new recommended users"
                     )
                     user_ids = [
                         user[0]
@@ -153,12 +150,14 @@ def main(account_name=None):
                 logging.info("Cycle complete. Waiting for the next cycle.")
                 random_sleep_time = random.uniform(CYCLE_DELAY * 0.5, CYCLE_DELAY * 1.5)
                 time.sleep(random_sleep_time)
+
             except Exception as e:
                 logging.error(f"An error occurred: {e}")
                 logging.error(f"{traceback.format_exc()}")
-                # Reset status to 'idle' for users that were being processed
-                if user_ids:
+                if user_ids:  # Only reset if we have IDs
                     reset_status(db, user_ids)
+                # Add short recovery delay
+                time.sleep(1)
 
 
 if __name__ == "__main__":
