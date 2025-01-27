@@ -75,12 +75,19 @@ class ProxyManager:
                 except Exception as e:
                     logging.error(f"Failed to scrape {url}: {str(e)}")
 
-            if new_proxies:
-                self.proxies = list(set(new_proxies))
+            # Merge new proxies with existing list
+            existing_set = set(self.proxies)
+            added = 0
+            for proxy in new_proxies:
+                if proxy not in existing_set:
+                    self.proxies.append(proxy)
+                    added += 1
+
+            if added > 0:
                 self.last_refresh = datetime.now()
-                logging.info(f"Refreshed proxies: {len(self.proxies)} available")
+                logging.info(f"Added {added} new proxies. Total: {len(self.proxies)}")
             else:
-                logging.warning("No new proxies found, keeping existing list")
+                logging.info("No new proxies found in this refresh")
 
         finally:
             self.proxy_lock = False
@@ -99,7 +106,7 @@ class ProxyManager:
             if proxy in self.bad_proxies:
                 continue
 
-            return proxy  # Removed proxy validation check
+            return proxy
 
 
 PROXY_MANAGER = ProxyManager()
@@ -108,6 +115,7 @@ PROXY_MANAGER = ProxyManager()
 def get_twitter_scraper(account=None, force_login=False):
     attempt = 0
     while True:
+        attempt += 1
         proxy = None  # Initialize here first
         session = None
         try:
@@ -118,7 +126,7 @@ def get_twitter_scraper(account=None, force_login=False):
                 "http": f"http://{proxy}",
                 "https": f"http://{proxy}",
             }
-            session.timeout = 10
+            session.timeout = 5
 
             if account:
                 if force_login or not os.path.exists(f"{account['login']}.cookies"):
@@ -140,7 +148,7 @@ def get_twitter_scraper(account=None, force_login=False):
             return scraper
 
         except Exception as e:
-            logging.error(f"Connection attempt {attempt+1} failed: {str(e)}")
+            logging.error(f"Connection attempt {attempt} failed: {str(e)}")
             if proxy:  # Now safely referenced
                 PROXY_MANAGER.bad_proxies.add(proxy)
             if session:
