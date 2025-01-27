@@ -21,7 +21,7 @@ class ProxyManager:
     def __init__(self):
         self.proxies = deque()
         self.last_refresh = datetime(1970, 1, 1)
-        self.refresh_interval = timedelta(minutes=5)
+        self.refresh_interval = timedelta(minutes=1)
         self.bad_proxies = set()
         self.proxy_lock = False
 

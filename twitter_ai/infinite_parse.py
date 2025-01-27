@@ -128,7 +128,7 @@ def main(account_name=None):
                         user_ids,
                         limit_pages=PAGES_PER_USER,
                         max_retries=2,
-                        backoff_factor=2,
+                        backoff_factor=1,
                     )
                     if tweets:
                         inserted_tweets_count = save_tweets_to_db(db, tweets)
