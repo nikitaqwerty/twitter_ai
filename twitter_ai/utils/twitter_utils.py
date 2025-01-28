@@ -4,6 +4,7 @@ import logging
 import sys
 import os
 from httpx import Client
+import time
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.db_utils import get_db_connection
@@ -78,6 +79,7 @@ def get_twitter_scraper(account=None, force_login=False):
     while True:
         proxy_info = PROXY_MANAGER.get_next_proxy()
         if not proxy_info:
+            time.sleep(10)
             raise RuntimeError("No proxies available")
 
         proxy, guest_token = proxy_info
