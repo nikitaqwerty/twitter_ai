@@ -182,6 +182,7 @@ def create_proxies_table(db):
             source TEXT NOT NULL,
             status VARCHAR(4) NOT NULL CHECK (status IN ('good', 'bad')) DEFAULT 'good',
             error TEXT,
+            x_guest_token VARCHAR(255),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             last_checked TIMESTAMP,
             last_used TIMESTAMP
