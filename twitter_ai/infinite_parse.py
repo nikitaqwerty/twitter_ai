@@ -127,7 +127,7 @@ def main(account_name=None):
                         scraper,
                         user_ids,
                         limit_pages=PAGES_PER_USER,
-                        max_retries=2,
+                        max_retries=1,
                         backoff_factor=1,
                     )
                     if tweets:
