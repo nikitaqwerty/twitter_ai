@@ -1,13 +1,10 @@
-from collections import deque
 from twitter.scraper import Scraper
 from twitter.account import Account
 from twitter.util import init_session
-import requests
-from datetime import datetime, timedelta
-from bs4 import BeautifulSoup
 import logging
 import sys
 import os
+from utils.db_utils import get_db_connection
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.config import Config
@@ -18,111 +15,55 @@ logging.basicConfig(
 
 
 class ProxyManager:
-    def __init__(self):
-        self.proxies = deque()
-        self.last_refresh = datetime(1970, 1, 1)
-        self.refresh_interval = timedelta(minutes=1)
-        self.bad_proxies = set()
-        self.proxy_lock = False
-
-    def refresh_proxies(self):
-        if self.proxy_lock:
-            return
-        self.proxy_lock = True
-
-        try:
-            sources = [
-                (
-                    "https://www.sslproxies.org/",
-                    lambda soup: next(
-                        (
-                            t
-                            for t in soup.find_all("table")
-                            if "IP Address"
-                            in [th.get_text(strip=True) for th in t.find_all("th")]
-                            and "Port"
-                            in [th.get_text(strip=True) for th in t.find_all("th")]
-                        ),
-                        None,
-                    ),
-                ),
-                (
-                    "https://free-proxy-list.net/",
-                    lambda soup: soup.find("div", {"class": "table-responsive"}),
-                ),
-            ]
-
-            new_proxies = []
-            for url, table_finder in sources:
-                try:
-                    response = requests.get(url, timeout=15)
-                    soup = BeautifulSoup(response.text, "html.parser")
-                    table = table_finder(soup)
-
-                    if table:
-                        rows = table.tbody.find_all("tr") if table.tbody else []
-                        for row in rows:
-                            cells = row.find_all("td")
-                            if len(cells) >= 2:
-                                ip = cells[0].text.strip()
-                                port = cells[1].text.strip()
-                                proxy = f"{ip}:{port}"
-                                if proxy not in self.bad_proxies:
-                                    new_proxies.append(proxy)
-                    else:
-                        logging.warning(f"No valid table found at {url}")
-
-                except Exception as e:
-                    logging.error(f"Failed to scrape {url}: {str(e)}")
-
-            # Merge new proxies with existing list
-            existing_set = set(self.proxies)
-            added = 0
-            for proxy in new_proxies:
-                if proxy not in existing_set:
-                    self.proxies.append(proxy)
-                    added += 1
-
-            if added > 0:
-                self.last_refresh = datetime.now()
-                logging.info(f"Added {added} new proxies. Total: {len(self.proxies)}")
-            else:
-                logging.info("No new proxies found in this refresh")
-
-        finally:
-            self.proxy_lock = False
+    def __init__(self, db):
+        self.db = db
 
     def get_next_proxy(self):
-        if datetime.now() - self.last_refresh > self.refresh_interval:
-            self.refresh_proxies()
+        query = """
+            UPDATE proxies
+            SET last_used = CURRENT_TIMESTAMP
+            WHERE id = (
+                SELECT id FROM proxies
+                WHERE status = 'good'
+                ORDER BY last_used NULLS FIRST
+                LIMIT 1
+                FOR UPDATE SKIP LOCKED
+            )
+            RETURNING address;
+        """
+        result = self.db.run_query(query)
+        return result[0][0] if result else None
 
-        while True:
-            if not self.proxies:
-                raise RuntimeError("No proxies available")
+    def mark_bad(self, address, error=None):
+        query = """
+            UPDATE proxies 
+            SET status = 'bad', last_checked = CURRENT_TIMESTAMP, error = %s
+            WHERE address = %s;
+        """
+        self.db.run_query(query, (error, address))
 
-            proxy = self.proxies.popleft()
-
-            if proxy in self.bad_proxies:
-                continue
-
-            return proxy
-
-    def requeue_proxy(self, proxy):
-        """Re-add working proxy to end of queue"""
-        self.proxies.append(proxy)
+    def add_proxies(self, proxies, source):
+        query = """
+            INSERT INTO proxies (address, source)
+            VALUES (%s, %s)
+            ON CONFLICT (address) DO NOTHING;
+        """
+        params = [(proxy, source) for proxy in proxies]
+        self.db.run_insert_query(query, params)
 
 
-PROXY_MANAGER = ProxyManager()
+PROXY_MANAGER = ProxyManager(get_db_connection())
 
 
 def get_twitter_scraper(account=None, force_login=False):
     attempt = 0
     while True:
+        proxy = PROXY_MANAGER.get_next_proxy()
+        if not proxy:
+            raise RuntimeError("No proxies available")
         attempt += 1
-        proxy = None
         session = None
         try:
-            proxy = PROXY_MANAGER.get_next_proxy()
             session = init_session(proxy=proxy)
             session.verify = False
             session.proxies = {
@@ -148,13 +89,12 @@ def get_twitter_scraper(account=None, force_login=False):
                 scraper = Scraper(session=session)
 
             logging.info(f"Successfully connected via proxy: {proxy}")
-            PROXY_MANAGER.requeue_proxy(proxy)
             return scraper
 
         except Exception as e:
-            logging.error(f"Connection attempt {attempt} failed: {str(e)}")
-            if proxy:
-                PROXY_MANAGER.bad_proxies.add(proxy)
+            error_msg = str(e)
+            PROXY_MANAGER.mark_bad(proxy, error_msg)
+            logging.error(f"Connection attempt {attempt} failed: {error_msg}")
             if session:
                 session.close()
 
@@ -175,12 +115,12 @@ def get_twitter_account(account):
             )
             account.save_cookies()
             logging.info(f"Authenticated account via proxy: {proxy}")
-            PROXY_MANAGER.requeue_proxy(proxy)
             return account
         except Exception as e:
-            logging.error(f"Account auth attempt {attempt+1} failed: {str(e)}")
+            error_msg = str(e)
+            logging.error(f"Account auth attempt {attempt+1} failed: {error_msg}")
             if proxy:
-                PROXY_MANAGER.bad_proxies.add(proxy)
+                PROXY_MANAGER.mark_bad(proxy, error_msg)
             if attempt == 2:
                 raise RuntimeError(
                     "Account authentication failed after 3 proxy attempts"

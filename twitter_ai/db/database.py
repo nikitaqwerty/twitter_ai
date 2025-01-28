@@ -174,11 +174,30 @@ def create_actions_table(db):
     db.run_query(query)
 
 
+def create_proxies_table(db):
+    query = """
+        CREATE TABLE IF NOT EXISTS proxies (
+            id SERIAL PRIMARY KEY,
+            address VARCHAR(21) UNIQUE NOT NULL,
+            source TEXT NOT NULL,
+            status VARCHAR(4) NOT NULL CHECK (status IN ('good', 'bad')) DEFAULT 'good',
+            error TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_checked TIMESTAMP,
+            last_used TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS proxies_status_idx ON proxies(status);
+        CREATE INDEX IF NOT EXISTS proxies_last_used_idx ON proxies(last_used);
+    """
+    db.run_query(query)
+
+
 def create_all_tables(db):
     create_users_table(db)
     create_tweets_table(db)
     create_user_recommendations_table(db)
     create_actions_table(db)
+    create_proxies_table(db)
     print("All tables created successfully.")
 
 
