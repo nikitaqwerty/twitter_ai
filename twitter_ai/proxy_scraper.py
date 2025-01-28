@@ -15,7 +15,7 @@ def check_proxies():
     # Get proxies needing verification
     query = """
         SELECT address FROM proxies 
-        WHERE (error IS NULL OR error LIKE '%%timeout%%')
+        WHERE (error IS NULL OR error LIKE '%%timed out%%' or error LIKE '%%503%%')
           AND attempts < 10
           AND (status IN ('new', 'good') 
                OR last_checked < NOW() - INTERVAL '1 hour')
@@ -92,11 +92,9 @@ def scrape_proxies():
 
         except Exception as e:
             logging.error(f"Failed to scrape {source}: {str(e)}")
-        time.sleep(5)
 
 
 if __name__ == "__main__":
     while True:
         scrape_proxies()
         check_proxies()
-        time.sleep(30)  # Check every 5 minutes
