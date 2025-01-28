@@ -101,11 +101,6 @@ def get_twitter_scraper(account=None, force_login=False):
                 timeout=10,
             )
 
-            test_resp = session.get(
-                "https://api.twitter.com/1.1/application/rate_limit_status.json"
-            )
-            test_resp.raise_for_status()
-
             if account:
                 if force_login or not os.path.exists(f"{account['login']}.cookies"):
                     scraper = Scraper(

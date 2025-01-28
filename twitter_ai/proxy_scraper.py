@@ -14,7 +14,7 @@ HEADERS = {
     "authorization": "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs=1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA",
     "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
 }
-CONCURRENCY_LIMIT = 250  # Number of concurrent proxy checks
+CONCURRENCY_LIMIT = 250
 REQUEST_TIMEOUT = 20
 SCRAPE_SOURCES = [
     (
@@ -37,18 +37,40 @@ SCRAPE_SOURCES = [
 ]
 
 
-async def check_proxy(session, proxy_manager, proxy):
+async def check_proxy(proxy_manager, proxy):
     try:
-        async with session.get(
-            PROXY_CHECK_URL,
-            headers=HEADERS,
-            proxy=f"http://{proxy}",
-            timeout=REQUEST_TIMEOUT,
-            ssl=False,
-        ) as response:
-            guest_token = response.headers.get("x-guest-token")
-            if not guest_token:
-                raise ValueError("Missing x-guest-token in headers")
+        headers = HEADERS.copy()
+        async with aiohttp.ClientSession(
+            headers=headers,
+            connector=aiohttp.TCPConnector(ssl=False),
+        ) as session:
+            # Activate guest token
+            post_url = "https://api.twitter.com/1.1/guest/activate.json"
+            async with session.post(
+                post_url,
+                proxy=f"http://{proxy}",
+                timeout=REQUEST_TIMEOUT,
+            ) as response:
+                text = await response.text()
+                if not text.strip().startswith("{"):
+                    raise ValueError("Proxy returns non-JSON response")
+                data = await response.json()
+                guest_token = data.get("guest_token")
+                if not guest_token:
+                    raise ValueError("Missing guest token in response")
+
+            # # Validate proxy with guest token
+            # test_headers = headers.copy()
+            # test_headers["x-guest-token"] = guest_token
+            # async with session.get(
+            #     PROXY_CHECK_URL,
+            #     headers=test_headers,
+            #     proxy=f"http://{proxy}",
+            #     timeout=REQUEST_TIMEOUT,
+            # ) as response:
+            #     text = await response.text()
+            #     if not text.strip().startswith("{"):
+            #         raise ValueError("Proxy returns non-JSON response")
 
             loop = asyncio.get_running_loop()
             await loop.run_in_executor(
@@ -68,7 +90,8 @@ async def check_proxies_async(proxy_manager):
         WHERE (
         (error IS NULL OR error LIKE '%%timed out%%' or error LIKE '%%503%%' or error = '')
           AND attempts < 10
-          AND last_checked < NOW() - INTERVAL '10 minutes')
+          AND (last_checked < NOW() - INTERVAL '10 minutes' 
+          or last_checked is null) )
         ORDER BY last_checked NULLS FIRST 
         LIMIT 1000
         FOR UPDATE SKIP LOCKED;
@@ -79,13 +102,17 @@ async def check_proxies_async(proxy_manager):
     if not proxies:
         return
 
-    connector = aiohttp.TCPConnector(limit=CONCURRENCY_LIMIT)
-    async with aiohttp.ClientSession(connector=connector) as session:
-        tasks = [check_proxy(session, proxy_manager, proxy) for proxy in proxies]
-        for chunk in chunks(tasks, CONCURRENCY_LIMIT):
-            await asyncio.gather(*chunk)
+    semaphore = asyncio.Semaphore(CONCURRENCY_LIMIT)
+
+    async def check(proxy):
+        async with semaphore:
+            await check_proxy(proxy_manager, proxy)
+
+    tasks = [check(proxy) for proxy in proxies]
+    await asyncio.gather(*tasks)
 
 
+# Rest of the file remains unchanged (scrape_source, scrape_proxies_async, chunks, main_loop)
 async def scrape_source(session, url, source, table_finder):
     try:
         async with session.get(url, timeout=15) as response:
@@ -145,7 +172,7 @@ async def main_loop():
         logger.info("Starting proxy validation cycle")
         await check_proxies_async(proxy_manager)
 
-        logger.info("Cycle completed, sleeping for 5 minutes")
+        logger.info("Cycle completed, sleeping for 10 seconds")
         await asyncio.sleep(10)
 
 
