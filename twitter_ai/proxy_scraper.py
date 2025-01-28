@@ -15,8 +15,10 @@ def check_proxies():
     # Get proxies needing verification
     query = """
         SELECT address FROM proxies 
-        WHERE status IN ('new', 'good') 
-        OR last_checked < NOW() - INTERVAL '1 hour'
+        WHERE (error IS NULL OR error LIKE '%%timeout%%')
+          AND attempts < 10
+          AND (status IN ('new', 'good') 
+               OR last_checked < NOW() - INTERVAL '1 hour')
         ORDER BY last_checked NULLS FIRST 
         LIMIT 50
         FOR UPDATE SKIP LOCKED;

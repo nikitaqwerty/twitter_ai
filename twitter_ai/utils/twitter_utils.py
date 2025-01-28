@@ -39,7 +39,10 @@ class ProxyManager:
         with get_db_connection() as db:
             query = """
                 UPDATE proxies 
-                SET status = 'bad', last_checked = CURRENT_TIMESTAMP, error = %s
+                SET status = 'bad', 
+                    last_checked = CURRENT_TIMESTAMP, 
+                    error = %s,
+                    attempts = attempts + 1  -- Increment on failure
                 WHERE address = %s;
             """
             db.run_query(query, (error, address))
@@ -58,7 +61,10 @@ class ProxyManager:
         with get_db_connection() as db:
             query = """
                 UPDATE proxies
-                SET x_guest_token = %s, status = 'good', last_checked = CURRENT_TIMESTAMP
+                SET x_guest_token = %s, 
+                    status = 'good', 
+                    last_checked = CURRENT_TIMESTAMP,
+                    attempts = 0  -- Reset attempts on success
                 WHERE address = %s;
             """
             db.run_query(query, (token, address))
