@@ -20,7 +20,7 @@ def check_proxies():
           AND (status IN ('new', 'good') 
                OR last_checked < NOW() - INTERVAL '1 hour')
         ORDER BY last_checked NULLS FIRST 
-        LIMIT 50
+        LIMIT 200
         FOR UPDATE SKIP LOCKED;
     """
     with get_db_connection() as db:
