@@ -85,7 +85,10 @@ def get_twitter_scraper(account=None, force_login=False):
         proxy, guest_token = proxy_info
         attempt += 1
         session = None
-
+        proxies = {
+            "http://": f"http://{proxy}",
+            "https://": f"http://{proxy}",
+        }
         try:
             session = Client(
                 headers={
@@ -93,10 +96,7 @@ def get_twitter_scraper(account=None, force_login=False):
                     "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
                     "x-guest-token": guest_token,
                 },
-                proxies={
-                    "http://": f"http://{proxy}",
-                    "https://": f"http://{proxy}",
-                },
+                proxies=proxies,
                 verify=False,
                 timeout=10,
             )
@@ -108,14 +108,17 @@ def get_twitter_scraper(account=None, force_login=False):
                         account["login"],
                         account["password"],
                         session=session,
+                        proxies=proxies,
                     )
                     scraper.save_cookies()
                 else:
                     scraper = Scraper(
-                        cookies=f"{account['login']}.cookies", session=session
+                        cookies=f"{account['login']}.cookies",
+                        session=session,
+                        proxies=proxies,
                     )
             else:
-                scraper = Scraper(session=session)
+                scraper = Scraper(session=session, proxies=proxies)
 
             logging.info(f"Connected via proxy: {proxy}")
             return scraper

@@ -20,7 +20,7 @@ configure_logging()
 
 USERS_PER_BATCH = 100
 PAGES_PER_USER = 1
-CYCLE_DELAY = 0.1  # Base delay for the cycle in seconds
+CYCLE_DELAY = 0  # Base delay for the cycle in seconds
 COOKIE_UPDATE_INTERVAL = timedelta(hours=24)
 
 
@@ -128,7 +128,7 @@ def main(account_name=None):
                         user_ids,
                         limit_pages=PAGES_PER_USER,
                         max_retries=1,
-                        backoff_factor=1,
+                        backoff_factor=0,
                     )
                     if tweets:
                         inserted_tweets_count = save_tweets_to_db(db, tweets)
@@ -167,8 +167,8 @@ def main(account_name=None):
 if __name__ == "__main__":
     import sys
 
-    if len(sys.argv) < 2:
-        print("Usage: python infinite_parse.py [<account_name>]")
-        sys.exit(1)
+    # if len(sys.argv) < 2:
+    #     print("Usage: python infinite_parse.py [<account_name>]")
+    #     sys.exit(1)
     account_name = sys.argv[1] if len(sys.argv) > 1 else None
     main(account_name)

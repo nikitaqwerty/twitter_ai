@@ -59,19 +59,6 @@ async def check_proxy(proxy_manager, proxy):
                 if not guest_token:
                     raise ValueError("Missing guest token in response")
 
-            # # Validate proxy with guest token
-            # test_headers = headers.copy()
-            # test_headers["x-guest-token"] = guest_token
-            # async with session.get(
-            #     PROXY_CHECK_URL,
-            #     headers=test_headers,
-            #     proxy=f"http://{proxy}",
-            #     timeout=REQUEST_TIMEOUT,
-            # ) as response:
-            #     text = await response.text()
-            #     if not text.strip().startswith("{"):
-            #         raise ValueError("Proxy returns non-JSON response")
-
             loop = asyncio.get_running_loop()
             await loop.run_in_executor(
                 None, proxy_manager.update_proxy_token, proxy, guest_token
