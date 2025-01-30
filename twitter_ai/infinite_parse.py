@@ -18,7 +18,7 @@ from utils.config import configure_logging, Config
 
 configure_logging()
 
-USERS_PER_BATCH = 100
+USERS_PER_BATCH = 25
 PAGES_PER_USER = 1
 CYCLE_DELAY = 0  # Base delay for the cycle in seconds
 COOKIE_UPDATE_INTERVAL = timedelta(hours=24)
