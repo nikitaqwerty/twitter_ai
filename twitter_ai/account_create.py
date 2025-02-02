@@ -4,7 +4,7 @@ import re
 from typing import Optional, List, Tuple
 from selenium.webdriver import ChromeOptions
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.support import expected_conditions as EC
 import undetected_chromedriver as uc
 from faker import Faker
@@ -32,14 +32,11 @@ class TwitterAccountCreator:
 
     def _init_driver(self) -> uc.Chrome:
         options = ChromeOptions()
-
         if self.config["use_proxy"] and self.current_proxy:
             options.add_argument(f"--proxy-server=http://{self.current_proxy}")
-
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--incognito")
         options.add_argument("--disable-blink-features=AutomationControlled")
-
         return uc.Chrome(options=options, headless=self.config.get("headless", False))
 
     def _handle_captcha(self) -> bool:
@@ -49,7 +46,6 @@ class TwitterAccountCreator:
             challenge_type = re.search(
                 r"Select all (.*?) images", challenge_text
             ).group(1)
-
             for i in range(1, 7):
                 element = self.driver.find_element(By.XPATH, f"//li[{i}]/a")
                 element.screenshot(f"captcha_{i}.png")
@@ -89,10 +85,7 @@ class TwitterAccountCreator:
                     (By.XPATH, "//span[text()='Create account']")
                 )
             ).click()
-
             self._fill_form()
-            self._handle_captcha()
-
             if code := self._get_verification_code():
                 self._enter_verification_code(code)
                 return self._set_password()
@@ -105,15 +98,13 @@ class TwitterAccountCreator:
         fields = {
             "name": self.fake.name(),
             "email": self.config["email"],
-            "password": self.DEFAULT_PASSWORD,
+            # "password": self.DEFAULT_PASSWORD,
         }
-
         for field, value in fields.items():
             element = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.NAME, field))
             )
             element.send_keys(value)
-
         self._fill_birthdate()
 
     def _set_password(self) -> bool:
@@ -121,7 +112,6 @@ class TwitterAccountCreator:
             WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.NAME, "password"))
             ).send_keys(self.DEFAULT_PASSWORD)
-
             self.driver.find_element(
                 By.XPATH, "//div[@role='button'][contains(.,'Next')]"
             ).click()
@@ -147,7 +137,6 @@ class TwitterAccountCreator:
             },
             proxies={"https": self.current_proxy} if self.current_proxy else None,
         )
-
         if "oauth_token" in response.json():
             tokens = response.json()
             return {
@@ -198,7 +187,6 @@ if __name__ == "__main__":
         "use_proxy": False,
         "headless": False,
     }
-
     bot = TwitterAccountCreator(config)
     if account := bot.create_account():
         print(f"Account created: {account['email']}")
