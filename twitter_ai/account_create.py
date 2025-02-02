@@ -86,6 +86,19 @@ class TwitterAccountCreator:
                 )
             ).click()
             self._fill_form()
+            # Press the "Next" button after filling the birthdate form
+            time.sleep(5)
+            WebDriverWait(self.driver, 20).until(
+                EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
+            ).click()
+            # Press the second "Next" button (no options checked)
+            WebDriverWait(self.driver, 20).until(
+                EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
+            ).click()
+            time.sleep(5)  # Pause for manual inspection
+            WebDriverWait(self.driver, 20).until(
+                EC.element_to_be_clickable((By.XPATH, "//span[text()='Authenticate']"))
+            ).click()
             if code := self._get_verification_code():
                 self._enter_verification_code(code)
                 return self._set_password()
