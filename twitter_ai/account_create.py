@@ -12,6 +12,7 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import requests
 from requests_oauthlib import OAuth1
+from utils.twitter_utils import PROXY_MANAGER  # Added import
 
 
 class TwitterAccountCreator:
@@ -23,12 +24,14 @@ class TwitterAccountCreator:
 
     def __init__(self, config: dict):
         self.config = config
-        self.driver = self._init_driver()
         self.fake = Faker()
         self.account_details = {}
-        self.current_proxy = (
-            random.choice(config["proxy_list"]) if config["proxy_list"] else None
-        )
+        self.current_proxy = None
+        if config.get("use_proxy"):
+            proxy_info = PROXY_MANAGER.get_next_proxy()  # Get from ProxyManager
+            if proxy_info:
+                self.current_proxy = proxy_info[0]  # Extract address from tuple
+        self.driver = self._init_driver()
 
     def _init_driver(self) -> uc.Chrome:
         options = ChromeOptions()
@@ -95,10 +98,13 @@ class TwitterAccountCreator:
             WebDriverWait(self.driver, 20).until(
                 EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
             ).click()
-            time.sleep(5)  # Pause for manual inspection
+            time.sleep(10)  # Pause for manual inspection
             WebDriverWait(self.driver, 20).until(
-                EC.element_to_be_clickable((By.XPATH, "//span[text()='Authenticate']"))
+                EC.element_to_be_clickable(
+                    (By.XPATH, "//button[text()='Authenticate']")
+                )
             ).click()
+            time.sleep(555)
             if code := self._get_verification_code():
                 self._enter_verification_code(code)
                 return self._set_password()
@@ -196,7 +202,6 @@ if __name__ == "__main__":
         "email": "example@temp.com",
         "email_service": "outlook",
         "email_credential": "password123",
-        "proxy_list": ["ip:port1", "ip:port2"],
         "use_proxy": False,
         "headless": False,
     }
