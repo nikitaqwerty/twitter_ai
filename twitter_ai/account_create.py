@@ -13,6 +13,8 @@ import pandas as pd
 import requests
 from requests_oauthlib import OAuth1
 from utils.twitter_utils import PROXY_MANAGER  # Added import
+from utils.config import Config
+from anticaptchaofficial.funcaptchaproxyless import funcaptchaProxyless
 
 
 class TwitterAccountCreator:
@@ -42,24 +44,17 @@ class TwitterAccountCreator:
         options.add_argument("--disable-blink-features=AutomationControlled")
         return uc.Chrome(options=options, headless=self.config.get("headless", False))
 
-    def _handle_captcha(self) -> bool:
-        try:
-            self.driver.switch_to.frame(self.driver.find_element(By.TAG_NAME, "iframe"))
-            challenge_text = self.driver.find_element(By.XPATH, "//h2").text
-            challenge_type = re.search(
-                r"Select all (.*?) images", challenge_text
-            ).group(1)
-            for i in range(1, 7):
-                element = self.driver.find_element(By.XPATH, f"//li[{i}]/a")
-                element.screenshot(f"captcha_{i}.png")
-                if self._detect_captcha_type(f"captcha_{i}.png") == challenge_type:
-                    element.click()
-                    time.sleep(2)
-                    return True
-            return False
-        except Exception as e:
-            print(f"Captcha handling failed: {str(e)}")
-            return False
+    def _solve_arkose_captcha(self) -> Optional[str]:
+        solver = funcaptchaProxyless()
+        solver.set_verbose(1)
+        solver.set_key(self.config["anti_captcha_key"])
+        solver.set_website_url("https://x.com/i/flow/signup")
+        solver.set_js_api_domain("client-api.arkoselabs.com")
+        solver.set_website_key("2CB16598-CB82-4CF7-B332-5990DB66F3AB")
+        solver.set_soft_id(0)
+
+        token = solver.solve_and_return_solution()
+        return token if token else None
 
     def _fill_birthdate(self):
         Select(self.driver.find_element(By.ID, "SELECTOR_1")).select_by_value(
@@ -89,22 +84,37 @@ class TwitterAccountCreator:
                 )
             ).click()
             self._fill_form()
-            # Press the "Next" button after filling the birthdate form
-            time.sleep(5)
+
+            # First Next click
             WebDriverWait(self.driver, 20).until(
                 EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
             ).click()
-            # Press the second "Next" button (no options checked)
+
+            # Second Next click
             WebDriverWait(self.driver, 20).until(
                 EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
             ).click()
-            time.sleep(10)  # Pause for manual inspection
-            WebDriverWait(self.driver, 20).until(
-                EC.element_to_be_clickable(
-                    (By.XPATH, "//button[text()='Authenticate']")
+
+            # WebDriverWait(self.driver, 20).until(
+            #     EC.element_to_be_clickable(
+            #         (By.XPATH, "//button[text()='Authenticate']")
+            #     )
+            # ).click()
+            # time.sleep(5)
+
+            # Solve Arkose captcha
+            if token := self._solve_arkose_captcha():
+                self.driver.execute_script(
+                    f'document.querySelector("input[name=\\"fc-token\\"]").value = "{token}";'
                 )
-            ).click()
-            time.sleep(555)
+                time.sleep(2)
+                # Submit verification
+                WebDriverWait(self.driver, 20).until(
+                    EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
+                ).click()
+            else:
+                return False
+
             if code := self._get_verification_code():
                 self._enter_verification_code(code)
                 return self._set_password()
@@ -204,6 +214,7 @@ if __name__ == "__main__":
         "email_credential": "password123",
         "use_proxy": False,
         "headless": False,
+        "anti_captcha_key": Config.ANTI_CAPTCHA_KEY,
     }
     bot = TwitterAccountCreator(config)
     if account := bot.create_account():

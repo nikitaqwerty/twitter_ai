@@ -24,6 +24,7 @@ class Config:
     GROQ_API_KEY = os.getenv("GROQ_API_KEY")
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
     COOKIES_DIR = os.getenv("COOKIES_DIR")
+    ANTI_CAPTCHA_KEY = os.getenv("ANTI_CAPTCHA_KEY")
 
     @staticmethod
     def get_twitter_accounts():
