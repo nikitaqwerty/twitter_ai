@@ -15,6 +15,7 @@ from requests_oauthlib import OAuth1
 from utils.twitter_utils import PROXY_MANAGER  # Added import
 from utils.config import Config
 from anticaptchaofficial.funcaptchaproxyless import funcaptchaProxyless
+from anticaptchaofficial.funcaptchaproxyon import funcaptchaProxyon
 
 
 class TwitterAccountCreator:
@@ -30,9 +31,7 @@ class TwitterAccountCreator:
         self.account_details = {}
         self.current_proxy = None
         if config.get("use_proxy"):
-            proxy_info = PROXY_MANAGER.get_next_proxy()  # Get from ProxyManager
-            if proxy_info:
-                self.current_proxy = proxy_info[0]  # Extract address from tuple
+            self.current_proxy = self._get_working_proxy()
         self.driver = self._init_driver()
 
     def _init_driver(self) -> uc.Chrome:
@@ -44,8 +43,51 @@ class TwitterAccountCreator:
         options.add_argument("--disable-blink-features=AutomationControlled")
         return uc.Chrome(options=options, headless=self.config.get("headless", False))
 
+    def _test_proxy(self, proxy: str) -> bool:
+        try:
+            proxies = {"http": f"http://{proxy}", "https": f"http://{proxy}"}
+            response = requests.get("https://x.com", proxies=proxies, timeout=5)
+            return response.status_code == 200
+        except Exception:
+            return False
+
+    def _get_working_proxy(self) -> Optional[str]:
+        while True:
+            proxy_info = PROXY_MANAGER.get_next_proxy()
+            if not proxy_info:
+                return None
+            proxy = proxy_info[0]
+            if self._test_proxy(proxy):
+                return proxy
+            print(f"Proxy {proxy} failed, trying next...")
+
     def _solve_arkose_captcha(self) -> Optional[str]:
-        solver = funcaptchaProxyless()
+        if self.config.get("use_proxy") and self.current_proxy:
+            solver = funcaptchaProxyon()
+            # Parse proxy details
+            proxy_parts = self.current_proxy.split("@")
+            if len(proxy_parts) == 2:
+                auth_part, host_port_part = proxy_parts
+                username, password = auth_part.split(":", 1)
+            else:
+                host_port_part = proxy_parts[0]
+                username, password = None, None
+
+            host_port = host_port_part.split(":")
+            host = host_port[0]
+            port = int(host_port[1]) if len(host_port) > 1 else 80
+
+            solver.set_proxy_address(host)
+            solver.set_proxy_port(port)
+            if username and password:
+                solver.set_proxy_login(username)
+                solver.set_proxy_password(password)
+
+            user_agent = self.driver.execute_script("return navigator.userAgent;")
+            solver.set_user_agent(user_agent)
+        else:
+            solver = funcaptchaProxyless()
+
         solver.set_verbose(1)
         solver.set_key(self.config["anti_captcha_key"])
         solver.set_website_url("https://x.com/i/flow/signup")
@@ -78,7 +120,7 @@ class TwitterAccountCreator:
     def _register_account(self) -> bool:
         try:
             self.driver.get("https://x.com/i/flow/signup?mx=2")
-            WebDriverWait(self.driver, 20).until(
+            WebDriverWait(self.driver, 30).until(
                 EC.element_to_be_clickable(
                     (By.XPATH, "//span[text()='Create account']")
                 )
@@ -86,29 +128,20 @@ class TwitterAccountCreator:
             self._fill_form()
 
             # First Next click
-            WebDriverWait(self.driver, 20).until(
+            WebDriverWait(self.driver, 30).until(
                 EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
             ).click()
 
             # Second Next click
-            WebDriverWait(self.driver, 20).until(
+            WebDriverWait(self.driver, 30).until(
                 EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
             ).click()
 
-            # WebDriverWait(self.driver, 20).until(
-            #     EC.element_to_be_clickable(
-            #         (By.XPATH, "//button[text()='Authenticate']")
-            #     )
-            # ).click()
-            # time.sleep(5)
-
-            # Solve Arkose captcha
             if token := self._solve_arkose_captcha():
                 self.driver.execute_script(
                     f'document.querySelector("input[name=\\"fc-token\\"]").value = "{token}";'
                 )
                 time.sleep(2)
-                # Submit verification
                 WebDriverWait(self.driver, 20).until(
                     EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
                 ).click()
@@ -127,7 +160,6 @@ class TwitterAccountCreator:
         fields = {
             "name": self.fake.name(),
             "email": self.config["email"],
-            # "password": self.DEFAULT_PASSWORD,
         }
         for field, value in fields.items():
             element = WebDriverWait(self.driver, 10).until(
@@ -198,21 +230,18 @@ class EmailClient:
         return handler() if handler else None
 
     def _handle_outlook(self) -> str:
-        # Implement Outlook email checking
         pass
 
     def _handle_gmail(self) -> str:
-        # Implement Gmail email checking
         pass
 
 
-# Example usage
 if __name__ == "__main__":
     config = {
         "email": "example@temp.com",
         "email_service": "outlook",
         "email_credential": "password123",
-        "use_proxy": False,
+        "use_proxy": True,
         "headless": False,
         "anti_captcha_key": Config.ANTI_CAPTCHA_KEY,
     }
