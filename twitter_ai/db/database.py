@@ -178,7 +178,7 @@ def create_proxies_table(db):
     query = """
         CREATE TABLE IF NOT EXISTS proxies (
             id SERIAL PRIMARY KEY,
-            address VARCHAR(21) UNIQUE NOT NULL,
+            address VARCHAR(128) UNIQUE NOT NULL,
             source TEXT NOT NULL,
             status VARCHAR(4) NOT NULL CHECK (status IN ('new','good', 'bad')) DEFAULT 'new',
             error TEXT,

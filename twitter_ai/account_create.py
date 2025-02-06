@@ -1,6 +1,5 @@
 import time
 import random
-import re
 from typing import Optional, List, Tuple
 from selenium.webdriver import ChromeOptions
 from selenium.webdriver.common.by import By
@@ -8,8 +7,6 @@ from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.support import expected_conditions as EC
 import undetected_chromedriver as uc
 from faker import Faker
-from bs4 import BeautifulSoup
-import pandas as pd
 import requests
 from requests_oauthlib import OAuth1
 from utils.twitter_utils import PROXY_MANAGER  # Added import
@@ -53,7 +50,9 @@ class TwitterAccountCreator:
 
     def _get_working_proxy(self) -> Optional[str]:
         while True:
-            proxy_info = PROXY_MANAGER.get_next_proxy()
+            proxy_info = PROXY_MANAGER.get_next_proxy(
+                source="smartproxy-residential-rotating"
+            )
             if not proxy_info:
                 return None
             proxy = proxy_info[0]
