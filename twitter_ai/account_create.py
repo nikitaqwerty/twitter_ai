@@ -1,6 +1,6 @@
 import time
 import random
-from typing import Optional, List, Tuple
+from typing import Optional
 from selenium.webdriver import ChromeOptions
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait, Select
@@ -40,11 +40,19 @@ class TwitterAccountCreator:
         try:
             options = ChromeOptions()
             if self.config["use_proxy"] and self.current_proxy:
-                options.add_argument(f"--proxy-server=http://{self.current_proxy}")
+                proxy_parts = self.current_proxy.split("@")
+                if len(proxy_parts) == 2:
+                    auth_part, host_port_part = proxy_parts
+                    username, password = auth_part.split(":", 1)
+                    host, port = host_port_part.split(":")
+                    proxy_str = f"{host}:{port}"
+                    options.add_argument(f"--proxy-server=http://{proxy_str}")
+                    options.add_argument(f"--proxy-auth={username}:{password}")
+                else:
+                    options.add_argument(f"--proxy-server=http://{self.current_proxy}")
             options.add_argument("--disable-dev-shm-usage")
             options.add_argument("--incognito")
             options.add_argument("--disable-blink-features=AutomationControlled")
-            # Ensure compatibility by letting undetected_chromedriver handle the version
             return uc.Chrome(
                 options=options,
                 headless=self.config.get("headless", False),
@@ -56,7 +64,16 @@ class TwitterAccountCreator:
 
     def _test_proxy(self, proxy: str) -> bool:
         try:
-            proxies = {"http": f"http://{proxy}", "https": f"http://{proxy}"}
+            proxy_parts = proxy.split("@")
+            if len(proxy_parts) == 2:
+                auth_part, host_port_part = proxy_parts
+                username, password = auth_part.split(":", 1)
+                proxies = {
+                    "http": f"http://{username}:{password}@{host_port_part}",
+                    "https": f"http://{username}:{password}@{host_port_part}",
+                }
+            else:
+                proxies = {"http": f"http://{proxy}", "https": f"http://{proxy}"}
             response = requests.get("https://x.com", proxies=proxies, timeout=5)
             return response.status_code == 200
         except Exception:
@@ -78,19 +95,16 @@ class TwitterAccountCreator:
     def _solve_arkose_captcha(self) -> Optional[str]:
         if self.config.get("use_proxy") and self.current_proxy:
             solver = funcaptchaProxyon()
-            # Parse proxy details
             proxy_parts = self.current_proxy.split("@")
             if len(proxy_parts) == 2:
                 auth_part, host_port_part = proxy_parts
                 username, password = auth_part.split(":", 1)
+                host, port = host_port_part.split(":")
             else:
-                host_port_part = proxy_parts[0]
+                host, port = proxy_parts[0].split(":")
                 username, password = None, None
-            host_port = host_port_part.split(":")
-            host = host_port[0]
-            port = int(host_port[1]) if len(host_port) > 1 else 80
             solver.set_proxy_address(host)
-            solver.set_proxy_port(port)
+            solver.set_proxy_port(int(port))
             if username and password:
                 solver.set_proxy_login(username)
                 solver.set_proxy_password(password)
@@ -162,12 +176,10 @@ class TwitterAccountCreator:
             return False
 
     def _fill_form(self):
-        # Fill name
         name = self.fake.name()
         WebDriverWait(self.driver, 10).until(
             EC.presence_of_element_located((By.NAME, "name"))
         ).send_keys(name)
-        # Check for phone field and switch to email if needed
         try:
             WebDriverWait(self.driver, 2).until(
                 EC.presence_of_element_located((By.NAME, "phone_number"))
@@ -179,11 +191,9 @@ class TwitterAccountCreator:
             ).click()
         except Exception:
             pass  # Phone field not present
-        # Fill email
         WebDriverWait(self.driver, 10).until(
             EC.presence_of_element_located((By.NAME, "email"))
         ).send_keys(self.config["email"])
-        # Fill birthdate
         self._fill_birthdate()
 
     def _set_password(self) -> bool:
@@ -214,7 +224,11 @@ class TwitterAccountCreator:
                 "x_auth_password": self.DEFAULT_PASSWORD,
                 "send_error_codes": "true",
             },
-            proxies={"https": self.current_proxy} if self.current_proxy else None,
+            proxies=(
+                {"https": f"http://{self.current_proxy}"}
+                if self.current_proxy
+                else None
+            ),
         )
         if "oauth_token" in response.json():
             tokens = response.json()
@@ -232,7 +246,11 @@ class TwitterAccountCreator:
             headers={
                 "Authorization": "Bearer XzAwAAAAAAMHCxpeSDG1gLNLghVe8d74hl6k4%3DRUMF4xAQLsbeBhTSRrCiQpJtxoGWeyHrDb5te2jpGskWDFW82F"
             },
-            proxies={"https": self.current_proxy} if self.current_proxy else None,
+            proxies=(
+                {"https": f"http://{self.current_proxy}"}
+                if self.current_proxy
+                else None
+            ),
         )
         return response.json()["guest_token"]
 
