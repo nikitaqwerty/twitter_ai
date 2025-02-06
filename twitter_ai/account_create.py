@@ -32,13 +32,22 @@ class TwitterAccountCreator:
         self.driver = self._init_driver()
 
     def _init_driver(self) -> uc.Chrome:
-        options = ChromeOptions()
-        if self.config["use_proxy"] and self.current_proxy:
-            options.add_argument(f"--proxy-server=http://{self.current_proxy}")
-        options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--incognito")
-        options.add_argument("--disable-blink-features=AutomationControlled")
-        return uc.Chrome(options=options, headless=self.config.get("headless", False))
+        try:
+            options = ChromeOptions()
+            if self.config["use_proxy"] and self.current_proxy:
+                options.add_argument(f"--proxy-server=http://{self.current_proxy}")
+            options.add_argument("--disable-dev-shm-usage")
+            options.add_argument("--incognito")
+            options.add_argument("--disable-blink-features=AutomationControlled")
+            # Ensure compatibility by letting undetected_chromedriver handle the version
+            return uc.Chrome(
+                options=options,
+                headless=self.config.get("headless", False),
+                version_main=132,
+            )
+        except Exception as e:
+            print(f"Failed to initialize ChromeDriver: {str(e)}")
+            raise
 
     def _test_proxy(self, proxy: str) -> bool:
         try:
@@ -71,29 +80,24 @@ class TwitterAccountCreator:
             else:
                 host_port_part = proxy_parts[0]
                 username, password = None, None
-
             host_port = host_port_part.split(":")
             host = host_port[0]
             port = int(host_port[1]) if len(host_port) > 1 else 80
-
             solver.set_proxy_address(host)
             solver.set_proxy_port(port)
             if username and password:
                 solver.set_proxy_login(username)
                 solver.set_proxy_password(password)
-
             user_agent = self.driver.execute_script("return navigator.userAgent;")
             solver.set_user_agent(user_agent)
         else:
             solver = funcaptchaProxyless()
-
         solver.set_verbose(1)
         solver.set_key(self.config["anti_captcha_key"])
         solver.set_website_url("https://x.com/i/flow/signup")
         solver.set_js_api_domain("client-api.arkoselabs.com")
         solver.set_website_key("2CB16598-CB82-4CF7-B332-5990DB66F3AB")
         solver.set_soft_id(0)
-
         token = solver.solve_and_return_solution()
         return token if token else None
 
@@ -125,17 +129,14 @@ class TwitterAccountCreator:
                 )
             ).click()
             self._fill_form()
-
             # First Next click
             WebDriverWait(self.driver, 30).until(
                 EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
             ).click()
-
             # Second Next click
             WebDriverWait(self.driver, 30).until(
                 EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
             ).click()
-
             if token := self._solve_arkose_captcha():
                 self.driver.execute_script(
                     f'document.querySelector("input[name=\\"fc-token\\"]").value = "{token}";'
@@ -146,7 +147,6 @@ class TwitterAccountCreator:
                 ).click()
             else:
                 return False
-
             if code := self._get_verification_code():
                 self._enter_verification_code(code)
                 return self._set_password()
@@ -161,7 +161,6 @@ class TwitterAccountCreator:
         WebDriverWait(self.driver, 10).until(
             EC.presence_of_element_located((By.NAME, "name"))
         ).send_keys(name)
-
         # Check for phone field and switch to email if needed
         try:
             WebDriverWait(self.driver, 2).until(
@@ -174,12 +173,10 @@ class TwitterAccountCreator:
             ).click()
         except Exception:
             pass  # Phone field not present
-
         # Fill email
         WebDriverWait(self.driver, 10).until(
             EC.presence_of_element_located((By.NAME, "email"))
         ).send_keys(self.config["email"])
-
         # Fill birthdate
         self._fill_birthdate()
 
@@ -227,7 +224,7 @@ class TwitterAccountCreator:
         response = requests.post(
             "https://api.twitter.com/1.1/guest/activate.json",
             headers={
-                "Authorization": "Bearer AAAAAAAAAAAAAAAAAAAAAFXzAwAAAAAAMHCxpeSDG1gLNLghVe8d74hl6k4%3DRUMF4xAQLsbeBhTSRrCiQpJtxoGWeyHrDb5te2jpGskWDFW82F"
+                "Authorization": "Bearer XzAwAAAAAAMHCxpeSDG1gLNLghVe8d74hl6k4%3DRUMF4xAQLsbeBhTSRrCiQpJtxoGWeyHrDb5te2jpGskWDFW82F"
             },
             proxies={"https": self.current_proxy} if self.current_proxy else None,
         )
@@ -253,7 +250,7 @@ class EmailClient:
 
 if __name__ == "__main__":
     config = {
-        "email": "example@temp.com",
+        "email": "mistorsidor@outlook.com",
         "email_service": "outlook",
         "email_credential": "password123",
         "use_proxy": True,

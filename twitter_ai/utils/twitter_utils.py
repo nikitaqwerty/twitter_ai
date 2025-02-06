@@ -44,7 +44,8 @@ class ProxyManager:
                 SET last_used = CURRENT_TIMESTAMP
                 WHERE id = (
                     SELECT id FROM proxies
-                    WHERE status = 'good' AND x_guest_token IS NOT NULL
+                    WHERE status = 'good' 
+                    --AND x_guest_token IS NOT NULL
                     {source_condition}
                     ORDER BY last_used NULLS FIRST
                     LIMIT 1
