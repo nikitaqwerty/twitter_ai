@@ -13,6 +13,10 @@ from utils.twitter_utils import PROXY_MANAGER  # Added import
 from utils.config import Config
 from anticaptchaofficial.funcaptchaproxyless import funcaptchaProxyless
 from anticaptchaofficial.funcaptchaproxyon import funcaptchaProxyon
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 
 
 class TwitterAccountCreator:
@@ -29,6 +33,7 @@ class TwitterAccountCreator:
         self.current_proxy = None
         if config.get("use_proxy"):
             self.current_proxy = self._get_working_proxy()
+            logging.info(f"Using proxy: {self.current_proxy}")
         self.driver = self._init_driver()
 
     def _init_driver(self) -> uc.Chrome:
@@ -46,7 +51,7 @@ class TwitterAccountCreator:
                 version_main=132,
             )
         except Exception as e:
-            print(f"Failed to initialize ChromeDriver: {str(e)}")
+            logging.error(f"Failed to initialize ChromeDriver: {str(e)}")
             raise
 
     def _test_proxy(self, proxy: str) -> bool:
@@ -66,8 +71,9 @@ class TwitterAccountCreator:
                 return None
             proxy = proxy_info[0]
             if self._test_proxy(proxy):
+                logging.info(f"Found working proxy: {proxy}")
                 return proxy
-            print(f"Proxy {proxy} failed, trying next...")
+            logging.warning(f"Proxy {proxy} failed, trying next...")
 
     def _solve_arkose_captcha(self) -> Optional[str]:
         if self.config.get("use_proxy") and self.current_proxy:
@@ -152,7 +158,7 @@ class TwitterAccountCreator:
                 return self._set_password()
             return False
         except Exception as e:
-            print(f"Registration failed: {str(e)}")
+            logging.error(f"Registration failed: {str(e)}")
             return False
 
     def _fill_form(self):
@@ -259,5 +265,5 @@ if __name__ == "__main__":
     }
     bot = TwitterAccountCreator(config)
     if account := bot.create_account():
-        print(f"Account created: {account['email']}")
-        print(f"OAuth Token: {account['oauth_token']}")
+        logging.info(f"Account created: {account['email']}")
+        logging.info(f"OAuth Token: {account['oauth_token']}")
