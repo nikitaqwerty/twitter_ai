@@ -16,3 +16,4 @@ accounts.txt
 *.cookies
 .vscode/launch.json
 tst.json
+proxies.csv

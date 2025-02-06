@@ -157,15 +157,31 @@ class TwitterAccountCreator:
             return False
 
     def _fill_form(self):
-        fields = {
-            "name": self.fake.name(),
-            "email": self.config["email"],
-        }
-        for field, value in fields.items():
-            element = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.NAME, field))
+        # Fill name
+        name = self.fake.name()
+        WebDriverWait(self.driver, 10).until(
+            EC.presence_of_element_located((By.NAME, "name"))
+        ).send_keys(name)
+
+        # Check for phone field and switch to email if needed
+        try:
+            WebDriverWait(self.driver, 2).until(
+                EC.presence_of_element_located((By.NAME, "phone_number"))
             )
-            element.send_keys(value)
+            WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable(
+                    (By.XPATH, "//span[contains(text(), 'email instead')]")
+                )
+            ).click()
+        except Exception:
+            pass  # Phone field not present
+
+        # Fill email
+        WebDriverWait(self.driver, 10).until(
+            EC.presence_of_element_located((By.NAME, "email"))
+        ).send_keys(self.config["email"])
+
+        # Fill birthdate
         self._fill_birthdate()
 
     def _set_password(self) -> bool:
