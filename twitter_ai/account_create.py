@@ -14,18 +14,12 @@ from utils.config import Config
 from anticaptchaofficial.funcaptchaproxyless import funcaptchaProxyless
 from anticaptchaofficial.funcaptchaproxyon import funcaptchaProxyon
 import logging
-import zipfile
 import string
+import os
+import tempfile
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
-
-# Note:
-# The proxy works during the requests-based test but not in Selenium because
-# the proxy with authentication is implemented via a Chrome extension.
-# When running Chrome in incognito mode (via "--incognito"), extensions are disabled by default.
-# This prevents the proxy authentication extension from loading.
-# Removing (or conditionally adding) the incognito flag when using a proxy with authentication fixes the issue.
 
 
 class TwitterAccountCreator:
@@ -54,16 +48,15 @@ class TwitterAccountCreator:
                     auth_part, host_port_part = proxy_parts
                     username, password = auth_part.split(":", 1)
                     host, port = host_port_part.split(":")
-                    plugin_file = self._create_proxy_auth_extension(
+                    extension_dir = self._create_proxy_auth_extension(
                         proxy_host=host,
                         proxy_port=port,
                         proxy_username=username,
                         proxy_password=password,
                         scheme="http",
                     )
-                    options.add_extension(plugin_file)
+                    options.add_argument(f"--load-extension={extension_dir}")
                 else:
-                    # Ensure the proxy scheme matches your proxy type.
                     options.add_argument(f"--proxy-server=http://{self.current_proxy}")
             options.add_argument("--disable-dev-shm-usage")
             # If using a proxy with authentication (handled via an extension), avoid incognito mode,
@@ -85,11 +78,11 @@ class TwitterAccountCreator:
             raise
 
     def _create_proxy_auth_extension(
-        self, proxy_host, proxy_port, proxy_username, proxy_password, scheme="http"
-    ):
+        self, proxy_host, proxy_port, proxy_username, proxy_password, scheme="https"
+    ) -> str:
         """
-        Creates a Chrome extension to handle proxy authentication.
-        Returns the path to the created .zip extension.
+        Creates an unpacked Chrome extension to handle proxy authentication.
+        Returns the path to the created extension directory.
         """
         manifest_json = """
         {
@@ -145,11 +138,12 @@ class TwitterAccountCreator:
             username=proxy_username,
             password=proxy_password,
         )
-        plugin_file = "proxy_auth_plugin.zip"
-        with zipfile.ZipFile(plugin_file, "w") as zp:
-            zp.writestr("manifest.json", manifest_json)
-            zp.writestr("background.js", background_js)
-        return plugin_file
+        extension_dir = tempfile.mkdtemp(prefix="proxy_auth_ext_")
+        with open(os.path.join(extension_dir, "manifest.json"), "w") as f:
+            f.write(manifest_json)
+        with open(os.path.join(extension_dir, "background.js"), "w") as f:
+            f.write(background_js)
+        return extension_dir
 
     def _test_proxy(self, proxy: str) -> bool:
         try:
