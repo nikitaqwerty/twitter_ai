@@ -3,6 +3,7 @@ import random
 import string
 import os
 import tempfile
+import socket
 from typing import Optional
 from selenium.webdriver import ChromeOptions
 from selenium.webdriver.common.by import By
@@ -160,7 +161,7 @@ chrome.webRequest.onAuthRequired.addListener(
                 }
             else:
                 proxies = {"http": f"http://{proxy}", "https": f"http://{proxy}"}
-            response = requests.get("https://x.com", proxies=proxies, timeout=5)
+            response = requests.get("https://x.com", proxies=proxies, timeout=1)
             return response.status_code == 200
         except Exception:
             return False
@@ -187,13 +188,22 @@ chrome.webRequest.onAuthRequired.addListener(
                 username, password = auth_part.split(":", 1)
                 host, port = host_port_part.split(":")
             else:
-                host, port = proxy_parts[0].split(":")
+                host, port = self.current_proxy.split(":")
                 username, password = None, None
-            solver.set_proxy_address(host)
+            # Resolve hostname to IP to avoid proxy connection errors
+            try:
+                resolved_host = socket.gethostbyname(host)
+            except Exception as e:
+                logging.error(f"Failed to resolve proxy host {host}: {e}")
+                resolved_host = host
+            # solver.set_proxy_address("http://" + host)
+            solver.set_proxy_address(resolved_host)
             solver.set_proxy_port(int(port))
             if username and password:
                 solver.set_proxy_login(username)
                 solver.set_proxy_password(password)
+            # Explicitly set the proxy type; adjust if your proxy uses a different protocol.
+            solver.set_proxy_type("HTTPS")
             user_agent = self.driver.execute_script("return navigator.userAgent;")
             solver.set_user_agent(user_agent)
         else:
