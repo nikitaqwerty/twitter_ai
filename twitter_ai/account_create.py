@@ -1,5 +1,8 @@
 import time
 import random
+import string
+import os
+import tempfile
 from typing import Optional
 from selenium.webdriver import ChromeOptions
 from selenium.webdriver.common.by import By
@@ -14,9 +17,6 @@ from utils.config import Config
 from anticaptchaofficial.funcaptchaproxyless import funcaptchaProxyless
 from anticaptchaofficial.funcaptchaproxyon import funcaptchaProxyon
 import logging
-import string
-import os
-import tempfile
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -56,6 +56,7 @@ class TwitterAccountCreator:
                         scheme="http",
                     )
                     options.add_argument(f"--load-extension={extension_dir}")
+                    options.add_argument(f"--disable-extensions-except={extension_dir}")
                 else:
                     options.add_argument(f"--proxy-server=http://{self.current_proxy}")
             options.add_argument("--disable-dev-shm-usage")
@@ -85,52 +86,54 @@ class TwitterAccountCreator:
         Returns the path to the created extension directory.
         """
         manifest_json = """
-        {
-            "version": "1.0.0",
-            "manifest_version": 2,
-            "name": "Chrome Proxy",
-            "permissions": [
-                "proxy",
-                "tabs",
-                "unlimitedStorage",
-                "storage",
-                "webRequest",
-                "webRequestBlocking"
-            ],
-            "background": {
-                "scripts": ["background.js"]
-            },
-            "minimum_chrome_version": "22.0.0"
-        }
-        """
+{
+    "version": "1.0.0",
+    "manifest_version": 2,
+    "name": "Chrome Proxy",
+    "permissions": [
+        "proxy",
+        "tabs",
+        "unlimitedStorage",
+        "storage",
+        "webRequest",
+        "webRequestBlocking",
+        "<all_urls>"
+    ],
+    "background": {
+        "scripts": ["background.js"],
+        "persistent": true
+    },
+    "minimum_chrome_version": "22.0.0"
+}
+"""
         background_js = string.Template(
             """
-            var config = {
-                mode: "fixed_servers",
-                rules: {
-                    singleProxy: {
-                        scheme: "${scheme}",
-                        host: "${host}",
-                        port: parseInt(${port})
-                    },
-                    bypassList: ["localhost"]
-                }
-            };
-            chrome.proxy.settings.set({value: config, scope: "regular"}, function() {});
-            function callbackFn(details) {
-                return {
-                    authCredentials: {
-                        username: "${username}",
-                        password: "${password}"
-                    }
-                };
-            }
-            chrome.webRequest.onAuthRequired.addListener(
-                callbackFn,
-                {urls: ["<all_urls>"]},
-                ['blocking']
-            );
-            """
+var config = {
+    mode: "fixed_servers",
+    rules: {
+        singleProxy: {
+            scheme: "${scheme}",
+            host: "${host}",
+            port: parseInt(${port})
+        },
+        bypassList: ["localhost"]
+    }
+};
+chrome.proxy.settings.set({value: config, scope: "regular"}, function() {});
+function callbackFn(details) {
+    return {
+        authCredentials: {
+            username: "${username}",
+            password: "${password}"
+        }
+    };
+}
+chrome.webRequest.onAuthRequired.addListener(
+    callbackFn,
+    {urls: ["<all_urls>"]},
+    ["blocking"]
+);
+"""
         ).substitute(
             scheme=scheme,
             host=proxy_host,
