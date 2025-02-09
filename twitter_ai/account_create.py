@@ -187,6 +187,7 @@ chrome.webRequest.onAuthRequired.addListener(
             logging.warning(f"Proxy {proxy} failed, trying next...")
 
     def _solve_arkose_captcha(self) -> Optional[str]:
+        time.sleep(200000)
         if self.config.get("use_proxy") and self.current_proxy:
             solver = funcaptchaProxyon()
             proxy_parts = self.current_proxy.split("@")
@@ -257,11 +258,41 @@ chrome.webRequest.onAuthRequired.addListener(
                 EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
             ).click()
             time.sleep(5)
-            # Second Next click
-            WebDriverWait(self.driver, 30).until(
-                EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
-            ).click()
-            time.sleep(5)
+            # Second Next click (if available)
+            try:
+                WebDriverWait(self.driver, 10).until(
+                    EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
+                ).click()
+                time.sleep(5)
+            except Exception:
+                logging.info("Second Next button not found, proceeding...")
+
+            # Handle Arkose iframe authentication
+            try:
+                # logging.info(f"Page Source: {self.driver.page_source}")
+                time.sleep(10)
+
+                WebDriverWait(self.driver, 20).until(
+                    EC.frame_to_be_available_and_switch_to_it((By.ID, "arkoseFrame"))
+                )
+                # logging.info(f"Iframe Source: {self.driver.page_source}")
+
+                # WebDriverWait(self.driver, 20).until(
+                #     EC.element_to_be_clickable(
+                #         (By.XPATH, "//button[@data-theme='home.verifyButton']")
+                #     )
+                # ).click()
+                WebDriverWait(self.driver, 10).until(
+                    EC.element_to_be_clickable(
+                        (By.XPATH, "//button[text()='Authenticate']")
+                    )
+                ).click()
+                self.driver.switch_to.default_content()
+                time.sleep(2)
+            except Exception as e:
+                logging.error(f"Failed to handle Arkose authentication: {str(e)}")
+                return False
+
             if token := self._solve_arkose_captcha():
                 self.driver.execute_script(
                     f'document.querySelector("input[name=\\"fc-token\\"]").value = "{token}";'
@@ -382,7 +413,7 @@ if __name__ == "__main__":
         "email": "mistorsidor@outlook.com",
         "email_service": "outlook",
         "email_credential": "password123",
-        "use_proxy": True,
+        "use_proxy": False,
         "headless": False,
         "anti_captcha_key": Config.ANTI_CAPTCHA_KEY,
     }
