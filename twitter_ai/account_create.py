@@ -14,6 +14,8 @@ from utils.config import Config
 from anticaptchaofficial.funcaptchaproxyless import funcaptchaProxyless
 from anticaptchaofficial.funcaptchaproxyon import funcaptchaProxyon
 import logging
+import zipfile
+import string
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -45,9 +47,14 @@ class TwitterAccountCreator:
                     auth_part, host_port_part = proxy_parts
                     username, password = auth_part.split(":", 1)
                     host, port = host_port_part.split(":")
-                    proxy_str = f"{host}:{port}"
-                    options.add_argument(f"--proxy-server=http://{proxy_str}")
-                    options.add_argument(f"--proxy-auth={username}:{password}")
+                    plugin_file = self._create_proxy_auth_extension(
+                        proxy_host=host,
+                        proxy_port=port,
+                        proxy_username=username,
+                        proxy_password=password,
+                        scheme="http",
+                    )
+                    options.add_extension(plugin_file)
                 else:
                     options.add_argument(f"--proxy-server=http://{self.current_proxy}")
             options.add_argument("--disable-dev-shm-usage")
@@ -61,6 +68,74 @@ class TwitterAccountCreator:
         except Exception as e:
             logging.error(f"Failed to initialize ChromeDriver: {str(e)}")
             raise
+
+    def _create_proxy_auth_extension(
+        self, proxy_host, proxy_port, proxy_username, proxy_password, scheme="http"
+    ):
+        """
+        Creates a Chrome extension to handle proxy authentication.
+        Returns the path to the created .zip extension.
+        """
+        manifest_json = """
+        {
+            "version": "1.0.0",
+            "manifest_version": 2,
+            "name": "Chrome Proxy",
+            "permissions": [
+                "proxy",
+                "tabs",
+                "unlimitedStorage",
+                "storage",
+                "",
+                "webRequest",
+                "webRequestBlocking"
+            ],
+            "background": {
+                "scripts": ["background.js"]
+            },
+            "minimum_chrome_version": "22.0.0"
+        }
+        """
+        background_js = string.Template(
+            """
+            var config = {
+                mode: "fixed_servers",
+                rules: {
+                    singleProxy: {
+                        scheme: "${scheme}",
+                        host: "${host}",
+                        port: parseInt(${port})
+                    },
+                    bypassList: ["localhost"]
+                }
+            };
+            chrome.proxy.settings.set({value: config, scope: "regular"}, function() {});
+            function callbackFn(details) {
+                return {
+                    authCredentials: {
+                        username: "${username}",
+                        password: "${password}"
+                    }
+                };
+            }
+            chrome.webRequest.onAuthRequired.addListener(
+                callbackFn,
+                {urls: ["<all_urls>"]},
+                ['blocking']
+            );
+            """
+        ).substitute(
+            scheme=scheme,
+            host=proxy_host,
+            port=proxy_port,
+            username=proxy_username,
+            password=proxy_password,
+        )
+        plugin_file = "proxy_auth_plugin.zip"
+        with zipfile.ZipFile(plugin_file, "w") as zp:
+            zp.writestr("manifest.json", manifest_json)
+            zp.writestr("background.js", background_js)
+        return plugin_file
 
     def _test_proxy(self, proxy: str) -> bool:
         try:
