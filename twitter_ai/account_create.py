@@ -162,7 +162,14 @@ chrome.webRequest.onAuthRequired.addListener(
             else:
                 proxies = {"http": f"http://{proxy}", "https": f"http://{proxy}"}
             response = requests.get("https://x.com", proxies=proxies, timeout=1)
-            return response.status_code == 200
+            elapsed = response.elapsed.total_seconds()
+            if response.status_code == 200 and elapsed < 1:
+                return True
+            else:
+                logging.warning(
+                    f"Proxy {proxy} responded in {elapsed:.2f}s which is too slow."
+                )
+                return False
         except Exception:
             return False
 
@@ -196,7 +203,6 @@ chrome.webRequest.onAuthRequired.addListener(
             except Exception as e:
                 logging.error(f"Failed to resolve proxy host {host}: {e}")
                 resolved_host = host
-            # solver.set_proxy_address("http://" + host)
             solver.set_proxy_address(resolved_host)
             solver.set_proxy_port(int(port))
             if username and password:
@@ -245,14 +251,17 @@ chrome.webRequest.onAuthRequired.addListener(
                 )
             ).click()
             self._fill_form()
+            time.sleep(5)
             # First Next click
             WebDriverWait(self.driver, 30).until(
                 EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
             ).click()
+            time.sleep(5)
             # Second Next click
             WebDriverWait(self.driver, 30).until(
                 EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
             ).click()
+            time.sleep(5)
             if token := self._solve_arkose_captcha():
                 self.driver.execute_script(
                     f'document.querySelector("input[name=\\"fc-token\\"]").value = "{token}";'
