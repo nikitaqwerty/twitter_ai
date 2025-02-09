@@ -20,6 +20,13 @@ import string
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
+# Note:
+# The proxy works during the requests-based test but not in Selenium because
+# the proxy with authentication is implemented via a Chrome extension.
+# When running Chrome in incognito mode (via "--incognito"), extensions are disabled by default.
+# This prevents the proxy authentication extension from loading.
+# Removing (or conditionally adding) the incognito flag when using a proxy with authentication fixes the issue.
+
 
 class TwitterAccountCreator:
     TWITTER_AUTH_URL = "https://api.twitter.com/oauth/access_token"
@@ -56,9 +63,17 @@ class TwitterAccountCreator:
                     )
                     options.add_extension(plugin_file)
                 else:
+                    # Ensure the proxy scheme matches your proxy type.
                     options.add_argument(f"--proxy-server=http://{self.current_proxy}")
             options.add_argument("--disable-dev-shm-usage")
-            options.add_argument("--incognito")
+            # If using a proxy with authentication (handled via an extension), avoid incognito mode,
+            # because extensions are disabled in incognito by default.
+            if not (
+                self.config.get("use_proxy")
+                and self.current_proxy
+                and "@" in self.current_proxy
+            ):
+                options.add_argument("--incognito")
             options.add_argument("--disable-blink-features=AutomationControlled")
             return uc.Chrome(
                 options=options,
@@ -86,7 +101,6 @@ class TwitterAccountCreator:
                 "tabs",
                 "unlimitedStorage",
                 "storage",
-                "",
                 "webRequest",
                 "webRequestBlocking"
             ],
