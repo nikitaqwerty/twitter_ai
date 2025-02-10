@@ -136,14 +136,14 @@ class TwitterAccountCreator:
 
                 # Use JavaScript click as fallback
                 self.driver.execute_script("arguments[0].click();", auth_button)
-                self.driver.switch_to.default_content()
+                # self.driver.switch_to.default_content()
                 time.sleep(15)
             except Exception as e:
                 logging.error(f"Failed to handle Arkose authentication: {str(e)}")
                 return False
 
             captcha_solver = CaptchaSolver(self.driver, self.config, self.current_proxy)
-            if token := captcha_solver.solve_captcha("arkose"):
+            if token := captcha_solver.solve_captcha("arkose_vlm"):
                 self.driver.execute_script(
                     f'document.querySelector("input[name=\\"fc-token\\"]").value = "{token}";'
                 )

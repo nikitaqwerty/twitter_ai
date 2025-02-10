@@ -1,6 +1,8 @@
 import time
 import socket
 import logging
+import os
+import tempfile
 from typing import Optional
 from anticaptchaofficial.funcaptchaproxyless import funcaptchaProxyless
 from anticaptchaofficial.funcaptchaproxyon import funcaptchaProxyon
@@ -15,6 +17,9 @@ class CaptchaSolver:
     def solve_captcha(self, captcha_type: str = "arkose") -> Optional[str]:
         if captcha_type == "arkose":
             return self.solve_arkose_captcha()
+        elif captcha_type == "arkose_vlm":
+            solved = self.solve_arkose_captcha_vlm()
+            return "vlm_solved" if solved else None
         else:
             raise NotImplementedError(f"Captcha type '{captcha_type}' not supported.")
 
@@ -52,3 +57,65 @@ class CaptchaSolver:
         solver.set_soft_id(0)
         token = solver.solve_and_return_solution()
         return token if token else None
+
+    def solve_arkose_captcha_vlm(self) -> bool:
+        from selenium.webdriver.common.by import By
+
+        try:
+            from twitter_ai.llm.llm_api import GroqAPIHandler
+        except ImportError as e:
+            logging.error("Failed to import GroqAPIHandler: " + str(e))
+            return False
+
+        groq_handler = GroqAPIHandler(api_key=self.config.GROQ_API_KEY)
+        max_attempts = 5
+        attempt = 0
+
+        while attempt < max_attempts:
+            attempt += 1
+            logging.info(f"VLM captcha attempt {attempt}")
+
+            # Take a screenshot of the current iframe and save to a temporary file.
+            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+                screenshot_path = tmp.name
+            try:
+                self.driver.save_screenshot(screenshot_path)
+            except Exception as e:
+                logging.error(f"Failed to take screenshot: {e}")
+                os.unlink(screenshot_path)
+                return False
+
+            prompt = "Is the task in screenshot solved correctly?"
+            response = groq_handler.get_vlm_response(prompt, screenshot_path)
+            os.unlink(screenshot_path)
+
+            if response is None:
+                logging.error("No response from Groq VLM API.")
+                return False
+
+            logging.info(f"Groq VLM response: {response}")
+            if "yes" in response.lower():
+                try:
+                    submit_button = self.driver.find_element(
+                        By.XPATH, "//button[contains(text(), 'Submit')]"
+                    )
+                    submit_button.click()
+                    logging.info("Clicked 'Submit' button.")
+                    return True
+                except Exception as e:
+                    logging.error(f"Failed to click 'Submit' button: {e}")
+                    return False
+            else:
+                try:
+                    next_button = self.driver.find_element(
+                        By.XPATH, "//a[aria-label='Navigate to next image')]"
+                    )
+                    next_button.click()
+                    logging.info("Clicked 'Next' button.")
+                    time.sleep(3)
+                except Exception as e:
+                    logging.error(f"Failed to click 'Next' button: {e}")
+                    return False
+
+        logging.error("Exceeded maximum attempts for VLM captcha solving.")
+        return False
