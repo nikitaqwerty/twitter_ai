@@ -79,14 +79,16 @@ class CaptchaSolver:
             with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
                 screenshot_path = tmp.name
             try:
-                self.driver.save_screenshot(screenshot_path)
+                # Capture only the current iframe by taking a screenshot of its root HTML element.
+                iframe_html = self.driver.find_element(By.TAG_NAME, "html")
+                iframe_html.screenshot(screenshot_path)
                 subprocess.run(["open", "-a", "Preview", screenshot_path])
             except Exception as e:
                 logging.error(f"Failed to take screenshot: {e}")
                 os.unlink(screenshot_path)
                 return False
 
-            prompt = "Is the task in screenshot solved correctly? Reason and then answer 'Yes' or 'No' in the end."
+            prompt = "Does the length of the object on the right picture matches the nubmer shown on the left picture? Reason and then answer 'Yes' or 'No' in the end."
             response = groq_handler.get_vlm_response(prompt, screenshot_path)
             os.unlink(screenshot_path)
 
