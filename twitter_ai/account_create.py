@@ -105,44 +105,11 @@ class TwitterAccountCreator:
             except Exception:
                 logging.info("Second Next button not found, proceeding...")
 
-            # Handle Arkose iframe authentication
-            try:
-                time.sleep(3)
-                # Wait for iframe and switch using CSS selector
-                WebDriverWait(self.driver, 30).until(
-                    EC.frame_to_be_available_and_switch_to_it(
-                        (By.CSS_SELECTOR, "iframe[src*='arkoselabs.com']")
-                    )
-                )
-                WebDriverWait(self.driver, 30).until(
-                    EC.frame_to_be_available_and_switch_to_it(
-                        (By.CSS_SELECTOR, "iframe[src*='arkoselabs.com']")
-                    )
-                )
-                WebDriverWait(self.driver, 30).until(
-                    EC.frame_to_be_available_and_switch_to_it(
-                        (By.CSS_SELECTOR, "iframe[src*='arkoselabs.com']")
-                    )
-                )
-                # Wait for button using multiple possible identifiers
-                auth_button = WebDriverWait(self.driver, 30).until(
-                    EC.element_to_be_clickable(
-                        (
-                            By.XPATH,
-                            "//button[contains(., 'Authenticate') or contains(., 'Verify')]",
-                        )
-                    )
-                )
-
-                # Use JavaScript click as fallback
-                self.driver.execute_script("arguments[0].click();", auth_button)
-                # self.driver.switch_to.default_content()
-                time.sleep(20)
-            except Exception as e:
-                logging.error(f"Failed to handle Arkose authentication: {str(e)}")
+            # Handle Arkose iframe authentication using CaptchaSolver
+            captcha_solver = CaptchaSolver(self.driver, Config(), self.current_proxy)
+            if not captcha_solver.handle_arkose_iframe_authentication():
                 return False
 
-            captcha_solver = CaptchaSolver(self.driver, Config(), self.current_proxy)
             if token := captcha_solver.solve_captcha("arkose_vlm"):
                 self.driver.execute_script(
                     f'document.querySelector("input[name=\\"fc-token\\"]").value = "{token}";'
