@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from utils.twitter_utils import ProxyManager
+from utils.proxy_utils import ProxyManager
 import aiohttp
 from bs4 import BeautifulSoup
 from utils.db_utils import get_db_connection
@@ -99,7 +99,6 @@ async def check_proxies_async(proxy_manager):
     await asyncio.gather(*tasks)
 
 
-# Rest of the file remains unchanged (scrape_source, scrape_proxies_async, chunks, main_loop)
 async def scrape_source(session, url, source, table_finder):
     try:
         async with session.get(url, timeout=15) as response:
