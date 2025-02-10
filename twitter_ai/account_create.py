@@ -1,9 +1,5 @@
 import time
 import random
-import string
-import os
-import tempfile
-import socket
 from typing import Optional
 from selenium.webdriver import ChromeOptions
 from selenium.webdriver.common.by import By
@@ -13,12 +9,15 @@ import undetected_chromedriver as uc
 from faker import Faker
 import requests
 from requests_oauthlib import OAuth1
-from utils.twitter_utils import PROXY_MANAGER  # Added import
 from utils.config import Config
 import logging
 from utils.captcha_solver import CaptchaSolver
+from utils.proxy_utils import (
+    get_working_proxy,
+    apply_proxy_to_chrome_options,
+    build_requests_proxies,
+)
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 
 
@@ -35,30 +34,17 @@ class TwitterAccountCreator:
         self.account_details = {}
         self.current_proxy = None
         if config.get("use_proxy"):
-            self.current_proxy = self._get_working_proxy()
+            self.current_proxy = get_working_proxy("smartproxy-residential-rotating")
             logging.info(f"Using proxy: {self.current_proxy}")
         self.driver = self._init_driver()
 
     def _init_driver(self) -> uc.Chrome:
         try:
             options = ChromeOptions()
-            if self.config["use_proxy"] and self.current_proxy:
-                proxy_parts = self.current_proxy.split("@")
-                if len(proxy_parts) == 2:
-                    auth_part, host_port_part = proxy_parts
-                    username, password = auth_part.split(":", 1)
-                    host, port = host_port_part.split(":")
-                    extension_dir = self._create_proxy_auth_extension(
-                        proxy_host=host,
-                        proxy_port=port,
-                        proxy_username=username,
-                        proxy_password=password,
-                        scheme="http",
-                    )
-                    options.add_argument(f"--load-extension={extension_dir}")
-                    options.add_argument(f"--disable-extensions-except={extension_dir}")
-                else:
-                    options.add_argument(f"--proxy-server=http://{self.current_proxy}")
+            if self.config.get("use_proxy") and self.current_proxy:
+                apply_proxy_to_chrome_options(
+                    options, self.current_proxy, scheme="http"
+                )
             options.add_argument("--disable-dev-shm-usage")
             if not (
                 self.config.get("use_proxy")
@@ -75,111 +61,6 @@ class TwitterAccountCreator:
         except Exception as e:
             logging.error(f"Failed to initialize ChromeDriver: {str(e)}")
             raise
-
-    def _create_proxy_auth_extension(
-        self, proxy_host, proxy_port, proxy_username, proxy_password, scheme="https"
-    ) -> str:
-        manifest_json = """
-{
-    "version": "1.0.0",
-    "manifest_version": 2,
-    "name": "Chrome Proxy",
-    "permissions": [
-        "proxy",
-        "tabs",
-        "unlimitedStorage",
-        "storage",
-        "webRequest",
-        "webRequestBlocking",
-        "<all_urls>"
-    ],
-    "background": {
-        "scripts": ["background.js"],
-        "persistent": true
-    },
-    "minimum_chrome_version": "22.0.0"
-}
-"""
-        background_js = string.Template(
-            """
-var config = {
-    mode: "fixed_servers",
-    rules: {
-        singleProxy: {
-            scheme: "${scheme}",
-            host: "${host}",
-            port: parseInt(${port})
-        },
-        bypassList: ["localhost"]
-    }
-};
-chrome.proxy.settings.set({value: config, scope: "regular"}, function() {});
-function callbackFn(details) {
-    return {
-        authCredentials: {
-            username: "${username}",
-            password: "${password}"
-        }
-    };
-}
-chrome.webRequest.onAuthRequired.addListener(
-    callbackFn,
-    {urls: ["<all_urls>"]},
-    ["blocking"]
-);
-"""
-        ).substitute(
-            scheme=scheme,
-            host=proxy_host,
-            port=proxy_port,
-            username=proxy_username,
-            password=proxy_password,
-        )
-        extension_dir = tempfile.mkdtemp(prefix="proxy_auth_ext_")
-        with open(os.path.join(extension_dir, "manifest.json"), "w") as f:
-            f.write(manifest_json)
-        with open(os.path.join(extension_dir, "background.js"), "w") as f:
-            f.write(background_js)
-        return extension_dir
-
-    def _test_proxy(self, proxy: str) -> bool:
-        try:
-            proxy_parts = proxy.split("@")
-            if len(proxy_parts) == 2:
-                auth_part, host_port_part = proxy_parts
-                username, password = auth_part.split(":", 1)
-                proxies = {
-                    "http": f"http://{username}:{password}@{host_port_part}",
-                    "https": f"http://{username}:{password}@{host_port_part}",
-                }
-            else:
-                proxies = {"http": f"http://{proxy}", "https": f"http://{proxy}"}
-            response = requests.get(
-                "https://api.x.com/1.1/hashflags.json", proxies=proxies, timeout=1
-            )
-            elapsed = response.elapsed.total_seconds()
-            if response.status_code == 200 and elapsed < 1:
-                return True
-            else:
-                logging.warning(
-                    f"Proxy {proxy} responded in {elapsed:.2f}s which is too slow."
-                )
-                return False
-        except Exception:
-            return False
-
-    def _get_working_proxy(self) -> Optional[str]:
-        while True:
-            proxy_info = PROXY_MANAGER.get_next_proxy(
-                source="smartproxy-residential-rotating"
-            )
-            if not proxy_info:
-                return None
-            proxy = proxy_info[0]
-            if self._test_proxy(proxy):
-                logging.info(f"Found working proxy: {proxy}")
-                return proxy
-            logging.warning(f"Proxy {proxy} failed, trying next...")
 
     def _fill_birthdate(self):
         Select(self.driver.find_element(By.ID, "SELECTOR_1")).select_by_value(
@@ -336,11 +217,7 @@ chrome.webRequest.onAuthRequired.addListener(
                 "x_auth_password": self.DEFAULT_PASSWORD,
                 "send_error_codes": "true",
             },
-            proxies=(
-                {"https": f"http://{self.current_proxy}"}
-                if self.current_proxy
-                else None
-            ),
+            proxies=build_requests_proxies(self.current_proxy),
         )
         if "oauth_token" in response.json():
             tokens = response.json()
@@ -358,11 +235,7 @@ chrome.webRequest.onAuthRequired.addListener(
             headers={
                 "Authorization": "Bearer XzAwAAAAAAMHCxpeSDG1gLNLghVe8d74hl6k4%3DRUMF4xAQLsbeBhTSRrCiQpJtxoGWeyHrDb5te2jpGskWDFW82F"
             },
-            proxies=(
-                {"https": f"http://{self.current_proxy}"}
-                if self.current_proxy
-                else None
-            ),
+            proxies=build_requests_proxies(self.current_proxy),
         )
         return response.json()["guest_token"]
 
