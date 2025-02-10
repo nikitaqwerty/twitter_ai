@@ -15,9 +15,8 @@ import requests
 from requests_oauthlib import OAuth1
 from utils.twitter_utils import PROXY_MANAGER  # Added import
 from utils.config import Config
-from anticaptchaofficial.funcaptchaproxyless import funcaptchaProxyless
-from anticaptchaofficial.funcaptchaproxyon import funcaptchaProxyon
 import logging
+from utils.captcha_solver import CaptchaSolver
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -61,8 +60,6 @@ class TwitterAccountCreator:
                 else:
                     options.add_argument(f"--proxy-server=http://{self.current_proxy}")
             options.add_argument("--disable-dev-shm-usage")
-            # If using a proxy with authentication (handled via an extension), avoid incognito mode,
-            # because extensions are disabled in incognito by default.
             if not (
                 self.config.get("use_proxy")
                 and self.current_proxy
@@ -82,10 +79,6 @@ class TwitterAccountCreator:
     def _create_proxy_auth_extension(
         self, proxy_host, proxy_port, proxy_username, proxy_password, scheme="https"
     ) -> str:
-        """
-        Creates an unpacked Chrome extension to handle proxy authentication.
-        Returns the path to the created extension directory.
-        """
         manifest_json = """
 {
     "version": "1.0.0",
@@ -188,44 +181,6 @@ chrome.webRequest.onAuthRequired.addListener(
                 return proxy
             logging.warning(f"Proxy {proxy} failed, trying next...")
 
-    def _solve_arkose_captcha(self) -> Optional[str]:
-        time.sleep(200000)
-        if self.config.get("use_proxy") and self.current_proxy:
-            solver = funcaptchaProxyon()
-            proxy_parts = self.current_proxy.split("@")
-            if len(proxy_parts) == 2:
-                auth_part, host_port_part = proxy_parts
-                username, password = auth_part.split(":", 1)
-                host, port = host_port_part.split(":")
-            else:
-                host, port = self.current_proxy.split(":")
-                username, password = None, None
-            # Resolve hostname to IP to avoid proxy connection errors
-            try:
-                resolved_host = socket.gethostbyname(host)
-            except Exception as e:
-                logging.error(f"Failed to resolve proxy host {host}: {e}")
-                resolved_host = host
-            solver.set_proxy_address(resolved_host)
-            solver.set_proxy_port(int(port))
-            if username and password:
-                solver.set_proxy_login(username)
-                solver.set_proxy_password(password)
-            # Explicitly set the proxy type; adjust if your proxy uses a different protocol.
-            solver.set_proxy_type("HTTPS")
-            user_agent = self.driver.execute_script("return navigator.userAgent;")
-            solver.set_user_agent(user_agent)
-        else:
-            solver = funcaptchaProxyless()
-        solver.set_verbose(1)
-        solver.set_key(self.config["anti_captcha_key"])
-        solver.set_website_url("https://x.com/i/flow/signup")
-        solver.set_js_api_domain("client-api.arkoselabs.com")
-        solver.set_website_key("2CB16598-CB82-4CF7-B332-5990DB66F3AB")
-        solver.set_soft_id(0)
-        token = solver.solve_and_return_solution()
-        return token if token else None
-
     def _fill_birthdate(self):
         Select(self.driver.find_element(By.ID, "SELECTOR_1")).select_by_value(
             str(random.randint(1, 12))
@@ -306,7 +261,8 @@ chrome.webRequest.onAuthRequired.addListener(
                 logging.error(f"Failed to handle Arkose authentication: {str(e)}")
                 return False
 
-            if token := self._solve_arkose_captcha():
+            captcha_solver = CaptchaSolver(self.driver, self.config, self.current_proxy)
+            if token := captcha_solver.solve_captcha("arkose"):
                 self.driver.execute_script(
                     f'document.querySelector("input[name=\\"fc-token\\"]").value = "{token}";'
                 )
@@ -339,7 +295,7 @@ chrome.webRequest.onAuthRequired.addListener(
                 )
             ).click()
         except Exception:
-            pass  # Phone field not present
+            pass
         WebDriverWait(self.driver, 10).until(
             EC.presence_of_element_located((By.NAME, "email"))
         ).send_keys(self.config["email"])
@@ -356,6 +312,13 @@ chrome.webRequest.onAuthRequired.addListener(
             return True
         except:
             return False
+
+    def _enter_verification_code(self, code: str):
+        code_input = WebDriverWait(self.driver, 10).until(
+            EC.presence_of_element_located((By.NAME, "verfication_code"))
+        )
+        code_input.send_keys(code)
+        self.driver.find_element(By.XPATH, "//span[text()='Next']").click()
 
     def create_account(self) -> Optional[dict]:
         if self._register_account():
