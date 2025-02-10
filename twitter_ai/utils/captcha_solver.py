@@ -1,13 +1,15 @@
-import time
-import socket
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 import logging
+import time
 import os
 import tempfile
 import subprocess
-from typing import Optional
+from PIL import Image
 from anticaptchaofficial.funcaptchaproxyless import funcaptchaProxyless
 from anticaptchaofficial.funcaptchaproxyon import funcaptchaProxyon
-from PIL import Image  # Added for cropping
+from typing import Optional
 
 
 class CaptchaSolver:
@@ -68,15 +70,12 @@ class CaptchaSolver:
         except ImportError as e:
             logging.error("Failed to import GroqAPIHandler: " + str(e))
             return False
-
         groq_handler = GroqAPIHandler(api_key=self.config.GROQ_API_KEY)
-        max_attempts = 5
+        max_attempts = 30
         attempt = 0
-
         while attempt < max_attempts:
             attempt += 1
             logging.info(f"VLM captcha attempt {attempt}")
-
             with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
                 screenshot_path = tmp.name
             try:
@@ -96,51 +95,43 @@ class CaptchaSolver:
                 logging.error(f"Failed to take screenshot: {e}")
                 os.unlink(screenshot_path)
                 return False
-
             prompt = (
                 "Does the length of the object on the right picture matches the nubmer shown on the left picture? "
                 "Reason and then answer 'Yes' or 'No' in the end."
             )
             response = groq_handler.get_vlm_response(prompt, screenshot_path)
             os.unlink(screenshot_path)
-
             if response is None:
                 logging.error("No response from Groq VLM API.")
                 return False
-
             logging.info(f"Groq VLM response: {response}")
             if "yes" in response.lower():
                 try:
-                    submit_button = self.driver.find_element(
-                        By.XPATH, "//button[contains(text(), 'Submit')]"
+                    submit_button = self.wait_for_element_to_be_clickable(
+                        (By.XPATH, "//button[contains(text(), 'Submit')]"), timeout=10
                     )
                     submit_button.click()
-                    time.sleep(20000)
-                    logging.info("Clicked 'Submit' button.")
-                    return True
+                    time.sleep(20)  # Wait for the captcha to process
+                    if not self.is_captcha_round_remaining():
+                        return True  # No more captcha rounds
                 except Exception as e:
                     logging.error(f"Failed to click 'Submit' button: {e}")
                     return False
             else:
                 try:
-                    next_button = self.driver.find_element(
-                        By.XPATH, "//a[@aria-label='Navigate to next image']"
+                    next_button = self.wait_for_element_to_be_clickable(
+                        (By.XPATH, "//a[@aria-label='Navigate to next image']"),
+                        timeout=10,
                     )
                     next_button.click()
-                    logging.info("Clicked 'Next' button.")
                     time.sleep(3)
                 except Exception as e:
                     logging.error(f"Failed to click 'Next' button: {e}")
                     return False
-
         logging.error("Exceeded maximum attempts for VLM captcha solving.")
         return False
 
     def handle_arkose_iframe_authentication(self) -> bool:
-        from selenium.webdriver.common.by import By
-        from selenium.webdriver.support.ui import WebDriverWait
-        from selenium.webdriver.support import expected_conditions as EC
-
         try:
             time.sleep(3)
             # Switch into the Arkose iframe three times to ensure proper context.
@@ -161,8 +152,26 @@ class CaptchaSolver:
             )
             # Use JavaScript click as a fallback.
             self.driver.execute_script("arguments[0].click();", auth_button)
-            time.sleep(20)
+            # Wait for the Submit button to be clickable after authentication.
+            _ = self.wait_for_element_to_be_clickable(
+                (By.XPATH, "//button[contains(text(), 'Submit')]"), timeout=30
+            )
+            time.sleep(1)  # Wait for the captcha to process
             return True
         except Exception as e:
             logging.error(f"Failed to handle Arkose authentication: {str(e)}")
+            return False
+
+    def wait_for_element_to_be_clickable(self, locator, timeout=30):
+        return WebDriverWait(self.driver, timeout).until(
+            EC.element_to_be_clickable(locator)
+        )
+
+    def is_captcha_round_remaining(self):
+        # Implement logic to check if another captcha round is remaining
+        # For example, check if the 'Submit' button is still present
+        try:
+            self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
+            return True
+        except:
             return False
