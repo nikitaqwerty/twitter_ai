@@ -41,7 +41,9 @@ class GroqAPIHandler(APIHandler):
                 return {"error": "rate_limit_exceeded"}
             return None
 
-    def get_vlm_response(self, prompt, image_path):
+    def get_vlm_response(
+        self, prompt, image_path, model="llama-3.2-90b-vision-preview"
+    ):
         """
         Sends a VLM request with an image and a text prompt using the Groq client.
         Uses the VLM model: 'llama-3.2-90b-vision-preview'.
@@ -64,7 +66,7 @@ class GroqAPIHandler(APIHandler):
                         ],
                     }
                 ],
-                model="llama-3.2-90b-vision-preview",
+                model=model,
             )
             return chat_completion.choices[0].message.content
         except Exception as e:

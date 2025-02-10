@@ -10,6 +10,8 @@ from PIL import Image
 from anticaptchaofficial.funcaptchaproxyless import funcaptchaProxyless
 from anticaptchaofficial.funcaptchaproxyon import funcaptchaProxyon
 from typing import Optional
+import re
+import socket
 
 
 class CaptchaSolver:
@@ -83,29 +85,79 @@ class CaptchaSolver:
                 iframe_html = self.driver.find_element(By.TAG_NAME, "html")
                 iframe_html.screenshot(screenshot_path)
                 # Crop the screenshot: keep pixels from 10% to 50% of the image height.
-                try:
-                    with Image.open(screenshot_path) as img:
-                        w, h = img.size
-                        cropped = img.crop((0, int(h * 0.1), w, int(h * 0.5)))
-                        cropped.save(screenshot_path)
-                except Exception as crop_err:
-                    logging.error(f"Failed to crop screenshot: {crop_err}")
-                subprocess.run(["open", "-a", "Preview", screenshot_path])
+                with Image.open(screenshot_path) as img:
+                    w, h = img.size
+                    cropped = img.crop((0, int(h * 0.1), w, int(h * 0.5)))
             except Exception as e:
-                logging.error(f"Failed to take screenshot: {e}")
+                logging.error(f"Failed to take or crop screenshot: {e}")
                 os.unlink(screenshot_path)
                 return False
-            prompt = (
-                "Does the length of the object on the right picture matches the nubmer shown on the left picture? "
-                "Reason and then answer 'Yes' or 'No' in the end."
+
+            # Split the cropped image into left and right halves
+            left_img = cropped.crop((0, 0, cropped.width // 2, cropped.height))
+            right_img = cropped.crop(
+                (cropped.width // 2, 0, cropped.width, cropped.height)
             )
-            response = groq_handler.get_vlm_response(prompt, screenshot_path)
+
+            # Save left and right images to temporary files
+            left_temp = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False)
+            left_path = left_temp.name
+            left_img.save(left_path)
+            left_temp.close()
+
+            right_temp = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False)
+            right_path = right_temp.name
+            right_img.save(right_path)
+            right_temp.close()
+
+            # Optionally, open the images in Preview for debugging
+            subprocess.run(["open", "-a", "Preview", left_path])
+            subprocess.run(["open", "-a", "Preview", right_path])
+
+            left_prompt = "What is the number on the picture?"
+            right_prompt = "What is the length measured by the ruler on the picture?"
+
+            left_response = groq_handler.get_vlm_response(
+                left_prompt, left_path, model="llama-3.2-11b-vision-preview"
+            )
+            right_response = groq_handler.get_vlm_response(right_prompt, right_path)
+
+            # Clean up temporary files
             os.unlink(screenshot_path)
-            if response is None:
-                logging.error("No response from Groq VLM API.")
+            os.unlink(left_path)
+            os.unlink(right_path)
+
+            if left_response is None or right_response is None:
+                logging.error("No response from Groq VLM API for one of the queries.")
                 return False
-            logging.info(f"Groq VLM response: {response}")
-            if "yes" in response.lower():
+
+            logging.info(f"Left response: {left_response}")
+            logging.info(f"Right response: {right_response}")
+
+            # Extract last integer number from both responses
+            left_numbers = re.findall(r"\d+", left_response)
+            right_numbers = re.findall(r"\d+", right_response)
+            if not left_numbers or not right_numbers:
+                logging.error("Failed to extract numbers from VLM responses.")
+                try:
+                    next_button = self.wait_for_element_to_be_clickable(
+                        (By.XPATH, "//a[@aria-label='Navigate to next image']"),
+                        timeout=10,
+                    )
+                    next_button.click()
+                    time.sleep(3)
+                except Exception as e:
+                    logging.error(f"Failed to click 'Next' button: {e}")
+                    return False
+                continue
+
+            left_number = int(left_numbers[-1])
+            right_number = int(right_numbers[-1])
+            logging.info(
+                f"Extracted left number: {left_number}, right number: {right_number}"
+            )
+
+            if left_number == right_number:
                 try:
                     submit_button = self.wait_for_element_to_be_clickable(
                         (By.XPATH, "//button[contains(text(), 'Submit')]"), timeout=10
@@ -168,8 +220,6 @@ class CaptchaSolver:
         )
 
     def is_captcha_round_remaining(self):
-        # Implement logic to check if another captcha round is remaining
-        # For example, check if the 'Submit' button is still present
         try:
             self.driver.find_element(By.XPATH, "//button[contains(text(), 'Submit')]")
             return True
