@@ -1,11 +1,11 @@
 import os
+import base64
+import logging
 from groq import Groq
 from openai import OpenAI
 from g4f.client import Client as g4fClient
 from g4f.Provider import OpenaiChat
 from g4f.cookies import set_cookies_dir, read_cookie_files
-
-import logging
 
 
 class APIHandler:
@@ -39,6 +39,36 @@ class GroqAPIHandler(APIHandler):
                 return {"error": "context_length_exceeded"}
             if "rate_limit_exceeded" in error_message:
                 return {"error": "rate_limit_exceeded"}
+            return None
+
+    def get_vlm_response(self, prompt, image_path):
+        """
+        Sends a VLM request with an image and a text prompt using the Groq client.
+        Uses the VLM model: 'llama-3.2-90b-vision-preview'.
+        """
+        try:
+            with open(image_path, "rb") as image_file:
+                encoded_image = base64.b64encode(image_file.read()).decode("utf-8")
+            chat_completion = self.client.chat.completions.create(
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/jpeg;base64,{encoded_image}",
+                                },
+                            },
+                        ],
+                    }
+                ],
+                model="llama-3.2-90b-vision-preview",
+            )
+            return chat_completion.choices[0].message.content
+        except Exception as e:
+            logging.error(f"Groq VLM API error: {e}")
             return None
 
 
@@ -117,3 +147,14 @@ if __name__ == "__main__":
         print(response)
     else:
         print("Failed to get a response.")
+
+    # Example usage for Groq VLM API
+    # Uncomment and set a valid image path and prompt to test the VLM method.
+    # if API_PROVIDER.lower() == "groq":
+    #     image_prompt = "What's in this image?"
+    #     image_path = "sf.jpg"  # Replace with your image file path
+    #     vlm_response = api_handler.get_vlm_response(image_prompt, image_path)
+    #     if vlm_response:
+    #         print(vlm_response)
+    #     else:
+    #         print("Failed to get a VLM response.")

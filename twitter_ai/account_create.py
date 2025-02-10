@@ -161,7 +161,9 @@ chrome.webRequest.onAuthRequired.addListener(
                 }
             else:
                 proxies = {"http": f"http://{proxy}", "https": f"http://{proxy}"}
-            response = requests.get("https://x.com", proxies=proxies, timeout=1)
+            response = requests.get(
+                "https://api.x.com/1.1/hashflags.json", proxies=proxies, timeout=1
+            )
             elapsed = response.elapsed.total_seconds()
             if response.status_code == 200 and elapsed < 1:
                 return True
@@ -269,26 +271,37 @@ chrome.webRequest.onAuthRequired.addListener(
 
             # Handle Arkose iframe authentication
             try:
-                # logging.info(f"Page Source: {self.driver.page_source}")
-                time.sleep(10)
-
-                WebDriverWait(self.driver, 20).until(
-                    EC.frame_to_be_available_and_switch_to_it((By.ID, "arkoseFrame"))
-                )
-                # logging.info(f"Iframe Source: {self.driver.page_source}")
-
-                # WebDriverWait(self.driver, 20).until(
-                #     EC.element_to_be_clickable(
-                #         (By.XPATH, "//button[@data-theme='home.verifyButton']")
-                #     )
-                # ).click()
-                WebDriverWait(self.driver, 10).until(
-                    EC.element_to_be_clickable(
-                        (By.XPATH, "//button[text()='Authenticate']")
+                time.sleep(3)
+                # Wait for iframe and switch using CSS selector
+                WebDriverWait(self.driver, 30).until(
+                    EC.frame_to_be_available_and_switch_to_it(
+                        (By.CSS_SELECTOR, "iframe[src*='arkoselabs.com']")
                     )
-                ).click()
+                )
+                WebDriverWait(self.driver, 30).until(
+                    EC.frame_to_be_available_and_switch_to_it(
+                        (By.CSS_SELECTOR, "iframe[src*='arkoselabs.com']")
+                    )
+                )
+                WebDriverWait(self.driver, 30).until(
+                    EC.frame_to_be_available_and_switch_to_it(
+                        (By.CSS_SELECTOR, "iframe[src*='arkoselabs.com']")
+                    )
+                )
+                # Wait for button using multiple possible identifiers
+                auth_button = WebDriverWait(self.driver, 30).until(
+                    EC.element_to_be_clickable(
+                        (
+                            By.XPATH,
+                            "//button[contains(., 'Authenticate') or contains(., 'Verify')]",
+                        )
+                    )
+                )
+
+                # Use JavaScript click as fallback
+                self.driver.execute_script("arguments[0].click();", auth_button)
                 self.driver.switch_to.default_content()
-                time.sleep(2)
+                time.sleep(15)
             except Exception as e:
                 logging.error(f"Failed to handle Arkose authentication: {str(e)}")
                 return False
