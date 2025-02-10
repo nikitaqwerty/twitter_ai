@@ -7,6 +7,7 @@ import subprocess
 from typing import Optional
 from anticaptchaofficial.funcaptchaproxyless import funcaptchaProxyless
 from anticaptchaofficial.funcaptchaproxyon import funcaptchaProxyon
+from PIL import Image  # Added for cropping
 
 
 class CaptchaSolver:
@@ -82,13 +83,24 @@ class CaptchaSolver:
                 # Capture only the current iframe by taking a screenshot of its root HTML element.
                 iframe_html = self.driver.find_element(By.TAG_NAME, "html")
                 iframe_html.screenshot(screenshot_path)
+                # Crop the screenshot: keep pixels from 10% to 50% of the image height.
+                try:
+                    with Image.open(screenshot_path) as img:
+                        w, h = img.size
+                        cropped = img.crop((0, int(h * 0.1), w, int(h * 0.5)))
+                        cropped.save(screenshot_path)
+                except Exception as crop_err:
+                    logging.error(f"Failed to crop screenshot: {crop_err}")
                 subprocess.run(["open", "-a", "Preview", screenshot_path])
             except Exception as e:
                 logging.error(f"Failed to take screenshot: {e}")
                 os.unlink(screenshot_path)
                 return False
 
-            prompt = "Does the length of the object on the right picture matches the nubmer shown on the left picture? Reason and then answer 'Yes' or 'No' in the end."
+            prompt = (
+                "Does the length of the object on the right picture matches the nubmer shown on the left picture? "
+                "Reason and then answer 'Yes' or 'No' in the end."
+            )
             response = groq_handler.get_vlm_response(prompt, screenshot_path)
             os.unlink(screenshot_path)
 
@@ -103,6 +115,7 @@ class CaptchaSolver:
                         By.XPATH, "//button[contains(text(), 'Submit')]"
                     )
                     submit_button.click()
+                    time.sleep(20000)
                     logging.info("Clicked 'Submit' button.")
                     return True
                 except Exception as e:

@@ -137,7 +137,7 @@ class TwitterAccountCreator:
                 # Use JavaScript click as fallback
                 self.driver.execute_script("arguments[0].click();", auth_button)
                 # self.driver.switch_to.default_content()
-                time.sleep(15)
+                time.sleep(20)
             except Exception as e:
                 logging.error(f"Failed to handle Arkose authentication: {str(e)}")
                 return False
