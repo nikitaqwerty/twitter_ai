@@ -12,6 +12,7 @@ from anticaptchaofficial.funcaptchaproxyon import funcaptchaProxyon
 from typing import Optional
 import re
 import socket
+from PIL import ImageChops
 
 
 class CaptchaSolver:
@@ -99,6 +100,10 @@ class CaptchaSolver:
                 (cropped.width // 2, 0, cropped.width, cropped.height)
             )
 
+            # Post processing: Remove white borders from the images
+            left_img = remove_white_border(left_img)
+            right_img = remove_white_border(right_img)
+
             # Save left and right images to temporary files
             left_temp = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False)
             left_path = left_temp.name
@@ -114,8 +119,8 @@ class CaptchaSolver:
             subprocess.run(["open", "-a", "Preview", left_path])
             subprocess.run(["open", "-a", "Preview", right_path])
 
-            left_prompt = "What is the number on the picture?"
-            right_prompt = "What is the length measured by the ruler on the picture?"
+            left_prompt = "What is the number on the picture? Output only the nubmer"
+            right_prompt = "What is the measured length of the object on the picture? Do not use units, reason and output number in the end"
 
             left_response = groq_handler.get_vlm_response(
                 left_prompt, left_path, model="llama-3.2-11b-vision-preview"
@@ -225,3 +230,10 @@ class CaptchaSolver:
             return True
         except:
             return False
+
+
+def remove_white_border(image):
+    bg = Image.new(image.mode, image.size, image.getpixel((0, 0)))
+    diff = ImageChops.difference(image, bg)
+    bbox = diff.getbbox()
+    return image.crop(bbox) if bbox else image
