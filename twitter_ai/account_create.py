@@ -142,7 +142,7 @@ class TwitterAccountCreator:
                 logging.error(f"Failed to handle Arkose authentication: {str(e)}")
                 return False
 
-            captcha_solver = CaptchaSolver(self.driver, self.config, self.current_proxy)
+            captcha_solver = CaptchaSolver(self.driver, Config(), self.current_proxy)
             if token := captcha_solver.solve_captcha("arkose_vlm"):
                 self.driver.execute_script(
                     f'document.querySelector("input[name=\\"fc-token\\"]").value = "{token}";'

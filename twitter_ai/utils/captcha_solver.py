@@ -62,7 +62,7 @@ class CaptchaSolver:
         from selenium.webdriver.common.by import By
 
         try:
-            from twitter_ai.llm.llm_api import GroqAPIHandler
+            from llm.llm_api import GroqAPIHandler
         except ImportError as e:
             logging.error("Failed to import GroqAPIHandler: " + str(e))
             return False
