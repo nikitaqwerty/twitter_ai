@@ -3,6 +3,7 @@ import socket
 import logging
 import os
 import tempfile
+import subprocess
 from typing import Optional
 from anticaptchaofficial.funcaptchaproxyless import funcaptchaProxyless
 from anticaptchaofficial.funcaptchaproxyon import funcaptchaProxyon
@@ -75,17 +76,17 @@ class CaptchaSolver:
             attempt += 1
             logging.info(f"VLM captcha attempt {attempt}")
 
-            # Take a screenshot of the current iframe and save to a temporary file.
             with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
                 screenshot_path = tmp.name
             try:
                 self.driver.save_screenshot(screenshot_path)
+                subprocess.run(["open", "-a", "Preview", screenshot_path])
             except Exception as e:
                 logging.error(f"Failed to take screenshot: {e}")
                 os.unlink(screenshot_path)
                 return False
 
-            prompt = "Is the task in screenshot solved correctly?"
+            prompt = "Is the task in screenshot solved correctly? Reason and then answer 'Yes' or 'No' in the end."
             response = groq_handler.get_vlm_response(prompt, screenshot_path)
             os.unlink(screenshot_path)
 
@@ -108,7 +109,7 @@ class CaptchaSolver:
             else:
                 try:
                     next_button = self.driver.find_element(
-                        By.XPATH, "//a[aria-label='Navigate to next image')]"
+                        By.XPATH, "//a[@aria-label='Navigate to next image']"
                     )
                     next_button.click()
                     logging.info("Clicked 'Next' button.")
