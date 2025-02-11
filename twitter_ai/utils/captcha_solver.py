@@ -174,7 +174,9 @@ class CaptchaSolver:
                     right_img.save(right_path)
                 subprocess.run(["open", "-a", "Preview", right_path])
 
-                right_prompt = "Look at the attached image. The image shows a simple measuring scale with numerical markings. An object’s edge is aligned with one of these marks. Your task is to identify the numerical value on the scale where the object ends and output that measured length as a number (in the same units indicated on the scale). Provide the measurement round integer number in your answer."
+                right_prompt = "Look at the attached image. The image shows a simple measuring scale with numerical markings."
+                "An object’s edge is aligned with one of these marks."
+                "Your task is to identify the numerical value on the scale where the object ends and output that measured length as a number (in the same units indicated on the scale). Provide the measurement round integer number in your answer."
                 right_response = groq_handler.get_vlm_response(right_prompt, right_path)
                 os.unlink(right_path)
 
