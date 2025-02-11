@@ -18,3 +18,4 @@ accounts.txt
 tst.json
 proxies.csv
 proxy_auth_plugin.zip
+har_and_cookies/blackbox.json

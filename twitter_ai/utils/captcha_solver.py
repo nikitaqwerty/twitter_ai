@@ -66,12 +66,13 @@ class CaptchaSolver:
 
     def solve_arkose_captcha_vlm(self) -> bool:
         try:
-            from llm.llm_api import GroqAPIHandler
+            from llm.llm_api import GroqAPIHandler, g4fAPIHandler
         except ImportError as e:
-            logging.error("Failed to import GroqAPIHandler: " + str(e))
+            logging.error("Failed to import API handlers: " + str(e))
             return False
 
         groq_handler = GroqAPIHandler(api_key=self.config.GROQ_API_KEY)
+        g4f_handler = g4fAPIHandler(model="gemini-2.0-flash")
         max_rounds = 3
         max_attempts = 10
 
@@ -166,7 +167,7 @@ class CaptchaSolver:
                         continue  # Try next attempt
 
                 right_img = remove_white_border(right_img)
-                right_img = right_img.convert("L")
+                # right_img = right_img.convert("L")
                 with tempfile.NamedTemporaryFile(
                     suffix=".jpg", delete=False
                 ) as right_temp:
@@ -179,12 +180,12 @@ class CaptchaSolver:
                     "An object’s edge is aligned with one of these marks."
                     "Your task is to identify the numerical value on the scale where the object ends and output that measured length as a number (in the same units indicated on the scale). Provide the measurement round integer number in your answer."
                 )
-                right_response = groq_handler.get_vlm_response(right_prompt, right_path)
+                right_response = g4f_handler.get_vlm_response(right_prompt, right_path)
                 os.unlink(right_path)
 
                 if right_response is None:
                     logging.error(
-                        f"No response from Groq VLM API for right query in round {round_num} attempt {attempt}."
+                        f"No response from g4f VLM API for right query in round {round_num} attempt {attempt}."
                     )
                     if attempt < max_attempts:
                         try:
