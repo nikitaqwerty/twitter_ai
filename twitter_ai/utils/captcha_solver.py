@@ -12,6 +12,7 @@ from anticaptchaofficial.funcaptchaproxyon import funcaptchaProxyon
 from typing import Optional
 import re
 import socket
+import csv
 
 
 class CaptchaSolver:
@@ -19,6 +20,54 @@ class CaptchaSolver:
         self.driver = driver
         self.config = config
         self.proxy = proxy
+
+        # Initialize CSV logging in the root of the data folder.
+        self.csv_log_path = os.path.join(os.getcwd(), "data", "runs.csv")
+        os.makedirs(os.path.dirname(self.csv_log_path), exist_ok=True)
+        if not os.path.exists(self.csv_log_path):
+            with open(self.csv_log_path, "w", newline="") as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(
+                    [
+                        "run timestamp",
+                        "filename left",
+                        "filename right",
+                        "vlm output extracted number left",
+                        "vlm output extracted number right",
+                        "vlm left model name",
+                        "vlm right model name",
+                        "left ground truth",
+                        "right ground truth",
+                    ]
+                )
+
+    def log_run(
+        self,
+        run_timestamp,
+        filename_left,
+        filename_right,
+        left_extracted,
+        right_extracted,
+        left_model,
+        right_model,
+        left_ground_truth,
+        right_ground_truth,
+    ):
+        with open(self.csv_log_path, "a", newline="") as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(
+                [
+                    run_timestamp,
+                    filename_left,
+                    filename_right,
+                    left_extracted,
+                    right_extracted,
+                    left_model,
+                    right_model,
+                    left_ground_truth,
+                    right_ground_truth,
+                ]
+            )
 
     def solve_captcha(self, captcha_type: str = "arkose") -> Optional[str]:
         if captcha_type == "arkose":
@@ -199,7 +248,23 @@ class CaptchaSolver:
                 )
                 right_response = g4f_handler.get_vlm_response(right_prompt, right_path)
                 os.unlink(right_path)
-
+                extracted_right = ""
+                if right_response is not None:
+                    nums = re.findall(r"\d+", right_response)
+                    if nums:
+                        extracted_right = int(nums[-1])
+                # Log this attempt's run data to CSV.
+                self.log_run(
+                    round_start_time,
+                    left_perm_path,
+                    right_perm_path,
+                    left_number,
+                    extracted_right,
+                    "llama-3.2-11b-vision-preview",
+                    "gemini-2.0-flash",
+                    "",
+                    "",
+                )
                 if right_response is None:
                     logging.error(
                         f"No response from g4f VLM API for right query in round {round_num} attempt {attempt}."
@@ -221,8 +286,7 @@ class CaptchaSolver:
                     else:
                         break
 
-                right_numbers = re.findall(r"\d+", right_response)
-                if not right_numbers:
+                if extracted_right == "":
                     logging.error(
                         f"Failed to extract number from right VLM response in round {round_num} attempt {attempt}."
                     )
@@ -243,11 +307,10 @@ class CaptchaSolver:
                     else:
                         break
 
-                right_number = int(right_numbers[-1])
                 logging.info(
-                    f"Round {round_num} attempt {attempt} right response: {right_response} (extracted {right_number})"
+                    f"Round {round_num} attempt {attempt} right response: {right_response} (extracted {extracted_right})"
                 )
-                if left_number == right_number:
+                if left_number == extracted_right:
                     try:
                         submit_button = self.wait_for_element_to_be_clickable(
                             (By.XPATH, "//button[contains(text(), 'Submit')]"),
