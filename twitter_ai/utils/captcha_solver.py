@@ -76,7 +76,12 @@ class CaptchaSolver:
         max_rounds = 3
         max_attempts = 10
 
+        # Create data directory for saving screenshots
+        data_dir = os.path.join(os.getcwd(), "data", "captcha_screenshots")
+        os.makedirs(data_dir, exist_ok=True)
+
         for round_num in range(1, max_rounds + 1):
+            round_start_time = time.strftime("%Y%m%d_%H%M%S")
             logging.info(f"Starting captcha round {round_num}")
             # Capture the base screenshot for this round.
             try:
@@ -98,6 +103,11 @@ class CaptchaSolver:
             # Extract and process the left image (remains constant during the round)
             left_img = cropped.crop((0, 0, cropped.width // 2, cropped.height))
             left_img = remove_white_border(left_img)
+            # Save permanent copy of left image
+            left_perm_path = os.path.join(
+                data_dir, f"{round_start_time}_round{round_num}_left.jpg"
+            )
+            left_img.save(left_perm_path)
             with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as left_temp:
                 left_path = left_temp.name
                 left_img.save(left_path)
@@ -136,7 +146,7 @@ class CaptchaSolver:
                         (cropped.width // 2, 0, cropped.width, cropped.height)
                     )
                 else:
-                    # For subsequent attempts, capture a new screenshot for the right image.
+                    right_screenshot_path = None
                     try:
                         with tempfile.NamedTemporaryFile(
                             suffix=".jpg", delete=False
@@ -162,12 +172,19 @@ class CaptchaSolver:
                         logging.error(
                             f"Failed to capture right screenshot on round {round_num} attempt {attempt}: {e}"
                         )
-                        if os.path.exists(right_screenshot_path):
+                        if right_screenshot_path and os.path.exists(
+                            right_screenshot_path
+                        ):
                             os.unlink(right_screenshot_path)
                         continue  # Try next attempt
 
                 right_img = remove_white_border(right_img)
-                # right_img = right_img.convert("L")
+                # Save permanent copy of right image
+                right_perm_path = os.path.join(
+                    data_dir,
+                    f"{round_start_time}_round{round_num}_attempt{attempt}_right.jpg",
+                )
+                right_img.save(right_perm_path)
                 with tempfile.NamedTemporaryFile(
                     suffix=".jpg", delete=False
                 ) as right_temp:
