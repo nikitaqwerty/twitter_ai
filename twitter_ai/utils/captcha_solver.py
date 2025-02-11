@@ -66,126 +66,213 @@ class CaptchaSolver:
         return token if token else None
 
     def solve_arkose_captcha_vlm(self) -> bool:
-        from selenium.webdriver.common.by import By
-
         try:
             from llm.llm_api import GroqAPIHandler
         except ImportError as e:
             logging.error("Failed to import GroqAPIHandler: " + str(e))
             return False
+
         groq_handler = GroqAPIHandler(api_key=self.config.GROQ_API_KEY)
-        max_attempts = 30
-        attempt = 0
-        while attempt < max_attempts:
-            attempt += 1
-            logging.info(f"VLM captcha attempt {attempt}")
-            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
-                screenshot_path = tmp.name
+        max_rounds = 3
+        max_attempts = 10
+
+        for round_num in range(1, max_rounds + 1):
+            logging.info(f"Starting captcha round {round_num}")
+            # Capture the base screenshot for this round.
             try:
-                # Capture only the current iframe by taking a screenshot of its root HTML element.
+                with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+                    screenshot_path = tmp.name
                 iframe_html = self.driver.find_element(By.TAG_NAME, "html")
                 iframe_html.screenshot(screenshot_path)
-                # Crop the screenshot: keep pixels from 10% to 50% of the image height.
                 with Image.open(screenshot_path) as img:
                     w, h = img.size
                     cropped = img.crop((0, int(h * 0.1), w, int(h * 0.5)))
             except Exception as e:
-                logging.error(f"Failed to take or crop screenshot: {e}")
-                os.unlink(screenshot_path)
-                return False
+                logging.error(
+                    f"Failed to capture or crop screenshot in round {round_num}: {e}"
+                )
+                if os.path.exists(screenshot_path):
+                    os.unlink(screenshot_path)
+                continue  # Proceed to next round
 
-            # Split the cropped image into left and right halves
+            # Extract and process the left image (remains constant during the round)
             left_img = cropped.crop((0, 0, cropped.width // 2, cropped.height))
-            right_img = cropped.crop(
-                (cropped.width // 2, 0, cropped.width, cropped.height)
-            )
-
-            # Post processing: Remove white borders from the images
             left_img = remove_white_border(left_img)
-            right_img = remove_white_border(right_img)
-
-            # Save left and right images to temporary files
-            left_temp = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False)
-            left_path = left_temp.name
-            left_img.save(left_path)
-            left_temp.close()
-
-            right_temp = tempfile.NamedTemporaryFile(suffix=".jpg", delete=False)
-            right_path = right_temp.name
-            right_img.save(right_path)
-            right_temp.close()
-
-            # Optionally, open the images in Preview for debugging
+            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as left_temp:
+                left_path = left_temp.name
+                left_img.save(left_path)
             subprocess.run(["open", "-a", "Preview", left_path])
-            subprocess.run(["open", "-a", "Preview", right_path])
 
             left_prompt = "What is the number on the picture? Output only the nubmer"
-            right_prompt = "What is the measured length of the object on the picture? Do not use units, reason and output number in the end"
-
             left_response = groq_handler.get_vlm_response(
                 left_prompt, left_path, model="llama-3.2-11b-vision-preview"
             )
-            right_response = groq_handler.get_vlm_response(right_prompt, right_path)
-
-            # Clean up temporary files
-            os.unlink(screenshot_path)
-            os.unlink(left_path)
-            os.unlink(right_path)
-
-            if left_response is None or right_response is None:
-                logging.error("No response from Groq VLM API for one of the queries.")
-                return False
-
-            logging.info(f"Left response: {left_response}")
-            logging.info(f"Right response: {right_response}")
-
-            # Extract last integer number from both responses
+            if left_response is None:
+                logging.error(
+                    f"No response from Groq VLM API for left query in round {round_num}."
+                )
+                os.unlink(screenshot_path)
+                os.unlink(left_path)
+                continue  # Try next round
             left_numbers = re.findall(r"\d+", left_response)
-            right_numbers = re.findall(r"\d+", right_response)
-            if not left_numbers or not right_numbers:
-                logging.error("Failed to extract numbers from VLM responses.")
-                try:
-                    next_button = self.wait_for_element_to_be_clickable(
-                        (By.XPATH, "//a[@aria-label='Navigate to next image']"),
-                        timeout=10,
-                    )
-                    next_button.click()
-                    time.sleep(3)
-                except Exception as e:
-                    logging.error(f"Failed to click 'Next' button: {e}")
-                    return False
-                continue
-
+            if not left_numbers:
+                logging.error(
+                    f"Failed to extract number from left VLM response in round {round_num}."
+                )
+                os.unlink(screenshot_path)
+                os.unlink(left_path)
+                continue  # Try next round
             left_number = int(left_numbers[-1])
-            right_number = int(right_numbers[-1])
             logging.info(
-                f"Extracted left number: {left_number}, right number: {right_number}"
+                f"Round {round_num} left response: {left_response} (extracted {left_number})"
             )
 
-            if left_number == right_number:
-                try:
-                    submit_button = self.wait_for_element_to_be_clickable(
-                        (By.XPATH, "//button[contains(text(), 'Submit')]"), timeout=10
+            # Attempt loop within the current round.
+            for attempt in range(1, max_attempts + 1):
+                logging.info(f"Round {round_num} attempt {attempt}")
+                if attempt == 1:
+                    # Use the existing screenshot's right part for the first attempt.
+                    right_img = cropped.crop(
+                        (cropped.width // 2, 0, cropped.width, cropped.height)
                     )
-                    submit_button.click()
-                    time.sleep(20)  # Wait for the captcha to process
-                    if not self.is_captcha_round_remaining():
-                        return True  # No more captcha rounds
-                except Exception as e:
-                    logging.error(f"Failed to click 'Submit' button: {e}")
-                    return False
-            else:
-                try:
-                    next_button = self.wait_for_element_to_be_clickable(
-                        (By.XPATH, "//a[@aria-label='Navigate to next image']"),
-                        timeout=10,
+                else:
+                    # For subsequent attempts, capture a new screenshot for the right image.
+                    try:
+                        with tempfile.NamedTemporaryFile(
+                            suffix=".jpg", delete=False
+                        ) as tmp:
+                            right_screenshot_path = tmp.name
+                        iframe_html = self.driver.find_element(By.TAG_NAME, "html")
+                        iframe_html.screenshot(right_screenshot_path)
+                        with Image.open(right_screenshot_path) as img:
+                            w, h = img.size
+                            cropped_attempt = img.crop(
+                                (0, int(h * 0.1), w, int(h * 0.5))
+                            )
+                        right_img = cropped_attempt.crop(
+                            (
+                                cropped_attempt.width // 2,
+                                0,
+                                cropped_attempt.width,
+                                cropped_attempt.height,
+                            )
+                        )
+                        os.unlink(right_screenshot_path)
+                    except Exception as e:
+                        logging.error(
+                            f"Failed to capture right screenshot on round {round_num} attempt {attempt}: {e}"
+                        )
+                        if os.path.exists(right_screenshot_path):
+                            os.unlink(right_screenshot_path)
+                        continue  # Try next attempt
+
+                right_img = remove_white_border(right_img)
+                with tempfile.NamedTemporaryFile(
+                    suffix=".jpg", delete=False
+                ) as right_temp:
+                    right_path = right_temp.name
+                    right_img.save(right_path)
+                subprocess.run(["open", "-a", "Preview", right_path])
+
+                right_prompt = "Look at the attached image. The image shows a simple measuring scale with numerical markings. An object’s edge is aligned with one of these marks. Your task is to identify the numerical value on the scale where the object ends and output that measured length as a number (in the same units indicated on the scale). Provide the measurement round integer number in your answer."
+                right_response = groq_handler.get_vlm_response(right_prompt, right_path)
+                os.unlink(right_path)
+
+                if right_response is None:
+                    logging.error(
+                        f"No response from Groq VLM API for right query in round {round_num} attempt {attempt}."
                     )
-                    next_button.click()
-                    time.sleep(3)
-                except Exception as e:
-                    logging.error(f"Failed to click 'Next' button: {e}")
-                    return False
-        logging.error("Exceeded maximum attempts for VLM captcha solving.")
+                    if attempt < max_attempts:
+                        try:
+                            next_button = self.wait_for_element_to_be_clickable(
+                                (By.XPATH, "//a[@aria-label='Navigate to next image']"),
+                                timeout=10,
+                            )
+                            next_button.click()
+                            time.sleep(3)
+                        except Exception as e:
+                            logging.error(
+                                f"Failed to click 'Next' button in round {round_num} attempt {attempt}: {e}"
+                            )
+                            break
+                        continue
+                    else:
+                        break
+
+                right_numbers = re.findall(r"\d+", right_response)
+                if not right_numbers:
+                    logging.error(
+                        f"Failed to extract number from right VLM response in round {round_num} attempt {attempt}."
+                    )
+                    if attempt < max_attempts:
+                        try:
+                            next_button = self.wait_for_element_to_be_clickable(
+                                (By.XPATH, "//a[@aria-label='Navigate to next image']"),
+                                timeout=10,
+                            )
+                            next_button.click()
+                            time.sleep(3)
+                        except Exception as e:
+                            logging.error(
+                                f"Failed to click 'Next' button in round {round_num} attempt {attempt}: {e}"
+                            )
+                            break
+                        continue
+                    else:
+                        break
+
+                right_number = int(right_numbers[-1])
+                logging.info(
+                    f"Round {round_num} attempt {attempt} right response: {right_response} (extracted {right_number})"
+                )
+                if left_number == right_number:
+                    try:
+                        submit_button = self.wait_for_element_to_be_clickable(
+                            (By.XPATH, "//button[contains(text(), 'Submit')]"),
+                            timeout=10,
+                        )
+                        submit_button.click()
+                        time.sleep(5)  # Wait for captcha processing
+                        os.unlink(screenshot_path)
+                        os.unlink(left_path)
+                        if not self.is_captcha_round_remaining():
+                            return True  # Captcha solved
+                        else:
+                            logging.info(
+                                f"Captcha round {round_num} solved, but further rounds remain."
+                            )
+                            break  # Proceed to next round
+                    except Exception as e:
+                        logging.error(
+                            f"Failed to click 'Submit' button in round {round_num} attempt {attempt}: {e}"
+                        )
+                        os.unlink(screenshot_path)
+                        os.unlink(left_path)
+                        break
+                else:
+                    if attempt < max_attempts:
+                        try:
+                            next_button = self.wait_for_element_to_be_clickable(
+                                (By.XPATH, "//a[@aria-label='Navigate to next image']"),
+                                timeout=10,
+                            )
+                            next_button.click()
+                            time.sleep(3)
+                        except Exception as e:
+                            logging.error(
+                                f"Failed to click 'Next' button in round {round_num} attempt {attempt}: {e}"
+                            )
+                            break
+                    else:
+                        logging.error(
+                            f"Exceeded maximum attempts for round {round_num}."
+                        )
+            # Cleanup round-specific temporary files.
+            if os.path.exists(screenshot_path):
+                os.unlink(screenshot_path)
+            if os.path.exists(left_path):
+                os.unlink(left_path)
+        logging.error("Exceeded maximum captcha rounds.")
         return False
 
     def handle_arkose_iframe_authentication(self) -> bool:
