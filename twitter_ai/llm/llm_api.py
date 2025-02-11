@@ -4,7 +4,7 @@ import logging
 from groq import Groq
 from openai import OpenAI
 from g4f.client import Client as g4fClient
-from g4f.Provider import OpenaiChat
+from g4f.Provider import OpenaiChat, Blackbox
 from g4f.cookies import set_cookies_dir, read_cookie_files
 
 
@@ -107,7 +107,7 @@ class g4fAPIHandler(APIHandler):
         if cookies_dir:
             set_cookies_dir(cookies_dir)
             read_cookie_files(cookies_dir)
-        self.client = g4fClient(provider=OpenaiChat)
+        self.client = g4fClient(provider=Blackbox)
 
     def get_response(self, query):
         try:
@@ -121,6 +121,31 @@ class g4fAPIHandler(APIHandler):
             return response.choices[0].message.content
         except Exception as e:
             logging.error(f"G4F API error: {e}")
+            return None
+
+    def get_vlm_response(self, prompt, image_path, model=None):
+        """
+        Sends a VLM request with an image and a text prompt using the g4f client.
+        Accepts an image path which can be a URL or a local file path.
+        """
+        try:
+            if image_path.startswith("http://") or image_path.startswith("https://"):
+                import requests
+
+                image = requests.get(image_path, stream=True).raw
+            else:
+                image = open(image_path, "rb")
+            response = self.client.chat.completions.create(
+                model=model or self.model,
+                messages=[
+                    {"role": "user", "content": prompt},
+                ],
+                image=image,
+                history_disabled=True,
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            logging.error(f"G4F VLM API error: {e}")
             return None
 
 
@@ -155,6 +180,17 @@ if __name__ == "__main__":
     # if API_PROVIDER.lower() == "groq":
     #     image_prompt = "What's in this image?"
     #     image_path = "sf.jpg"  # Replace with your image file path
+    #     vlm_response = api_handler.get_vlm_response(image_prompt, image_path)
+    #     if vlm_response:
+    #         print(vlm_response)
+    #     else:
+    #         print("Failed to get a VLM response.")
+
+    # Example usage for g4f VLM API
+    # Uncomment and set a valid image path (URL or local) and prompt to test the VLM method.
+    # if API_PROVIDER.lower() == "g4f":
+    #     image_prompt = "What's in this image?"
+    #     image_path = "https://raw.githubusercontent.com/xtekky/gpt4free/refs/heads/main/docs/images/cat.jpeg"  # or local path
     #     vlm_response = api_handler.get_vlm_response(image_prompt, image_path)
     #     if vlm_response:
     #         print(vlm_response)
