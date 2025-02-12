@@ -72,22 +72,23 @@ class CaptchaCollector:
                 )
             ).click()
             self._fill_form()
-            time.sleep(5)
+            time.sleep(1)
             WebDriverWait(self.driver, 30).until(
                 EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
             ).click()
-            time.sleep(5)
+            time.sleep(1)
             try:
                 WebDriverWait(self.driver, 10).until(
                     EC.element_to_be_clickable((By.XPATH, "//span[text()='Next']"))
                 ).click()
-                time.sleep(5)
+                time.sleep(1)
             except Exception:
                 logging.info("Second Next button not found, proceeding...")
             captcha_solver = CaptchaSolver(self.driver, Config())
             if not captcha_solver.handle_arkose_iframe_authentication():
                 logging.info("Failed to handle Arkose iframe authentication.")
                 return None
+            captcha_solver.solve_captcha("arkose_vlm")
             logging.info("Captcha handled successfully.")
             return None
         except Exception as e:

@@ -12,7 +12,6 @@ from anticaptchaofficial.funcaptchaproxyless import funcaptchaProxyless
 from anticaptchaofficial.funcaptchaproxyon import funcaptchaProxyon
 from typing import Optional
 import re
-import socket
 import csv
 
 
@@ -104,7 +103,7 @@ class CaptchaSolver:
 
         groq_handler = self.GroqAPIHandler(api_key=self.config.get("GROQ_API_KEY"))
         g4f_handler = self.g4fAPIHandler(model=self.g4f_model)
-        max_rounds = 3
+        max_rounds = 2
         max_attempts = 5
 
         # Create data directory for saving screenshots
