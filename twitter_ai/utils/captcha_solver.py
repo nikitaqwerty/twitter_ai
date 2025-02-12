@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -42,6 +43,20 @@ class CaptchaSolver:
                     ]
                 )
 
+        # Initialize LLM API handlers and model names as variables.
+        try:
+            from llm.llm_api import GroqAPIHandler, g4fAPIHandler
+
+            self.GroqAPIHandler = GroqAPIHandler
+            self.g4fAPIHandler = g4fAPIHandler
+        except ImportError as e:
+            logging.error("Failed to import LLM API handlers: " + str(e))
+            self.GroqAPIHandler = None
+            self.g4fAPIHandler = None
+
+        self.groq_model = config.get("groq_model", "llama-3.2-11b-vision-preview")
+        self.g4f_model = config.get("g4f_model", "gemini-2.0-flash")
+
     def log_run(
         self,
         run_timestamp,
@@ -72,59 +87,20 @@ class CaptchaSolver:
                 ]
             )
 
-    def solve_captcha(self, captcha_type: str = "arkose") -> Optional[str]:
-        if captcha_type == "arkose":
-            return self.solve_arkose_captcha()
-        elif captcha_type == "arkose_vlm":
+    def solve_captcha(self, captcha_type: str = "arkose_vlm") -> Optional[str]:
+        if captcha_type == "arkose_vlm":
             solved = self.solve_arkose_captcha_vlm()
             return "vlm_solved" if solved else None
         else:
             raise NotImplementedError(f"Captcha type '{captcha_type}' not supported.")
 
-    def solve_arkose_captcha(self) -> Optional[str]:
-        if self.config.get("use_proxy") and self.proxy:
-            solver = funcaptchaProxyon()
-            proxy_parts = self.proxy.split("@")
-            if len(proxy_parts) == 2:
-                auth_part, host_port_part = proxy_parts
-                username, password = auth_part.split(":", 1)
-                host, port = host_port_part.split(":")
-            else:
-                host, port = self.proxy.split(":")
-                username, password = None, None
-            try:
-                resolved_host = socket.gethostbyname(host)
-            except Exception as e:
-                logging.error(f"Failed to resolve proxy host {host}: {e}")
-                resolved_host = host
-            solver.set_proxy_address(resolved_host)
-            solver.set_proxy_port(int(port))
-            if username and password:
-                solver.set_proxy_login(username)
-                solver.set_proxy_password(password)
-            solver.set_proxy_type("HTTPS")
-            user_agent = self.driver.execute_script("return navigator.userAgent;")
-            solver.set_user_agent(user_agent)
-        else:
-            solver = funcaptchaProxyless()
-        solver.set_verbose(1)
-        solver.set_key(self.config["anti_captcha_key"])
-        solver.set_website_url("https://x.com/i/flow/signup")
-        solver.set_js_api_domain("client-api.arkoselabs.com")
-        solver.set_website_key("2CB16598-CB82-4CF7-B332-5990DB66F3AB")
-        solver.set_soft_id(0)
-        token = solver.solve_and_return_solution()
-        return token if token else None
-
     def solve_arkose_captcha_vlm(self) -> bool:
-        try:
-            from llm.llm_api import GroqAPIHandler, g4fAPIHandler
-        except ImportError as e:
-            logging.error("Failed to import API handlers: " + str(e))
+        if not self.GroqAPIHandler or not self.g4fAPIHandler:
+            logging.error("LLM API handlers are not available.")
             return False
 
-        groq_handler = GroqAPIHandler(api_key=self.config.GROQ_API_KEY)
-        g4f_handler = g4fAPIHandler(model="gemini-2.0-flash")
+        groq_handler = self.GroqAPIHandler(api_key=self.config.get("GROQ_API_KEY"))
+        g4f_handler = self.g4fAPIHandler(model=self.g4f_model)
         max_rounds = 3
         max_attempts = 10
 
@@ -166,7 +142,7 @@ class CaptchaSolver:
                     task_response = groq_handler.get_vlm_response(
                         task_prompt,
                         task_screenshot_path,
-                        model="llama-3.2-11b-vision-preview",
+                        model=self.groq_model,
                     )
                     if task_response is None:
                         task_type = "length"
@@ -239,7 +215,7 @@ class CaptchaSolver:
             subprocess.run(["open", "-a", "Preview", left_path])
 
             left_response = groq_handler.get_vlm_response(
-                left_prompt, left_path, model="llama-3.2-11b-vision-preview"
+                left_prompt, left_path, model=self.groq_model
             )
             if left_response is None:
                 logging.error(
@@ -353,8 +329,8 @@ class CaptchaSolver:
                     right_perm_path,
                     left_value,
                     extracted_right,
-                    "llama-3.2-11b-vision-preview",
-                    "gemini-2.0-flash",
+                    self.groq_model,
+                    self.g4f_model,
                     "",
                     "",
                     task_type,
