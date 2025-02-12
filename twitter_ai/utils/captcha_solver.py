@@ -56,6 +56,10 @@ class CaptchaSolver:
 
         self.groq_model = config.get("groq_model", "llama-3.2-11b-vision-preview")
         self.g4f_model = config.get("g4f_model", "gemini-2.0-flash")
+        # Moved model configuration for the right image prompt into __init__
+        self.groq_right_model = config.get(
+            "groq_right_model", "llama-3.2-90b-vision-preview"
+        )
 
     def log_run(
         self,
@@ -126,7 +130,7 @@ class CaptchaSolver:
                     # Capture screenshot of the captcha area using the full page screenshot (top 50%)
                     html_elem = self.driver.find_element(By.TAG_NAME, "html")
                     with tempfile.NamedTemporaryFile(
-                        suffix=".jpg", delete=False
+                        suffix=".png", delete=False
                     ) as tmp:
                         task_screenshot_path = tmp.name
                     html_elem.screenshot(task_screenshot_path)
@@ -190,7 +194,7 @@ class CaptchaSolver:
 
             # Capture the base screenshot for this round.
             try:
-                with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+                with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
                     screenshot_path = tmp.name
                 iframe_html = self.driver.find_element(By.TAG_NAME, "html")
                 iframe_html.screenshot(screenshot_path)
@@ -267,7 +271,7 @@ class CaptchaSolver:
                     right_screenshot_path = None
                     try:
                         with tempfile.NamedTemporaryFile(
-                            suffix=".jpg", delete=False
+                            suffix=".png", delete=False
                         ) as tmp:
                             right_screenshot_path = tmp.name
                         iframe_html = self.driver.find_element(By.TAG_NAME, "html")
@@ -310,7 +314,10 @@ class CaptchaSolver:
                     right_img.save(right_path)
                 subprocess.run(["open", "-a", "Preview", right_path])
 
-                right_response = g4f_handler.get_vlm_response(right_prompt, right_path)
+                # Use Groq for the right prompt with the new model from config.
+                right_response = groq_handler.get_vlm_response(
+                    right_prompt, right_path, model=self.groq_right_model
+                )
                 os.unlink(right_path)
                 if task_type == "seats":
                     right_match = (
@@ -334,14 +341,14 @@ class CaptchaSolver:
                     left_value,
                     extracted_right,
                     self.groq_model,
-                    self.g4f_model,
+                    self.groq_right_model,
                     "",
                     "",
                     task_type,
                 )
                 if right_response is None:
                     logging.error(
-                        f"No response from g4f VLM API for right query in round {round_num} attempt {attempt}."
+                        f"No response from Groq VLM API for right query in round {round_num} attempt {attempt}."
                     )
                     if attempt < max_attempts:
                         try:
