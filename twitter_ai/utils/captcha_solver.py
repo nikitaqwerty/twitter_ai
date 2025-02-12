@@ -178,10 +178,14 @@ class CaptchaSolver:
                         "and output that number."
                     )
                 elif task_type == "seats":
-                    left_prompt = "What are the letter and digit displayed on the left image? Provide them with no spaces."
+                    left_prompt = (
+                        "What is the combination of letter and pictogram icon displayed on the left image? "
+                        "Provide them concatenated (e.g., 'A-glasses')."
+                    )
                     right_prompt = (
-                        "Look at the attached image. The image shows seats with one highlighted seat that contains a letter and a digit. "
-                        "Your task is to identify the letter and digit on the highlighted seat and output them concatenated (e.g., 'A1')."
+                        "Look at the attached image. The image shows seats arranged in rows and columns, with each row and column labeled by a letter and a pictogram icon. "
+                        "Only one seat is occupied by a person, which is the target seat. "
+                        "Identify the label corresponding to the occupied seat (e.g., 'A-glasses') and output it exactly as shown."
                     )
 
             # Capture the base screenshot for this round.
@@ -226,10 +230,10 @@ class CaptchaSolver:
                 continue  # Try next round
 
             if task_type == "seats":
-                left_match = re.search(r"([A-Za-z]\d)", left_response)
+                left_match = re.search(r"([A-Za-z][-][A-Za-z]+)", left_response)
                 if not left_match:
                     logging.error(
-                        f"Failed to extract letter and digit from left VLM response in round {round_num}."
+                        f"Failed to extract letter and icon from left VLM response in round {round_num}."
                     )
                     os.unlink(screenshot_path)
                     os.unlink(left_path)
@@ -310,7 +314,7 @@ class CaptchaSolver:
                 os.unlink(right_path)
                 if task_type == "seats":
                     right_match = (
-                        re.search(r"([A-Za-z]\d)", right_response)
+                        re.search(r"([A-Za-z][-][A-Za-z]+)", right_response)
                         if right_response is not None
                         else None
                     )
