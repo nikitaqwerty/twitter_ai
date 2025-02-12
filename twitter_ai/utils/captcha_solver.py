@@ -147,15 +147,13 @@ class CaptchaSolver:
                     submit_button = self.wait_for_element_to_be_clickable(
                         (By.XPATH, "//button[contains(text(), 'Submit')]"), timeout=5
                     )
-                    # Capture screenshot of the captcha iframe's top 50%
-                    iframe = self.driver.find_element(
-                        By.CSS_SELECTOR, "iframe[src*='arkoselabs.com']"
-                    )
+                    # Capture screenshot of the captcha area using the full page screenshot (top 50%)
+                    html_elem = self.driver.find_element(By.TAG_NAME, "html")
                     with tempfile.NamedTemporaryFile(
                         suffix=".jpg", delete=False
                     ) as tmp:
                         task_screenshot_path = tmp.name
-                    iframe.screenshot(task_screenshot_path)
+                    html_elem.screenshot(task_screenshot_path)
                     with Image.open(task_screenshot_path) as img:
                         w, h = img.size
                         task_img = img.crop((0, 0, w, h // 2))
