@@ -25,10 +25,10 @@ FIELDNAMES = [
     "left ground truth",
     "right ground truth",
     "task type",
+    "bad record",
 ]
 
 
-# Load CSV records into memory.
 def load_csv():
     if not os.path.exists(CSV_PATH):
         raise Exception(f"CSV file not found:\n{CSV_PATH}")
@@ -38,7 +38,6 @@ def load_csv():
     return recs
 
 
-# Save CSV records from memory.
 def save_csv():
     try:
         with open(CSV_PATH, "w", newline="") as csvfile:
@@ -54,20 +53,37 @@ def save_csv():
 records = load_csv()
 
 
+def get_display_records():
+    # Exclude records marked as bad.
+    filtered = [
+        r
+        for r in records
+        if r.get("bad record", "").strip().lower() not in ("true", "1", "yes")
+    ]
+    # Sort by run timestamp descending.
+    sorted_by_timestamp = sorted(
+        filtered, key=lambda r: r["run timestamp"], reverse=True
+    )
+    # Then, put records with empty right ground truth first (stable sort).
+    return sorted(
+        sorted_by_timestamp, key=lambda r: bool(r["right ground truth"].strip())
+    )
+
+
 @app.route("/", methods=["GET", "POST"])
 def index():
-    if not records:
+    display_records = get_display_records()
+    if not display_records:
         return render_template_string("<p>No records found in CSV.</p>")
 
-    # Determine current record index.
     try:
         idx = int(request.args.get("index", "0"))
     except ValueError:
         idx = 0
     if idx < 0:
         idx = 0
-    if idx >= len(records):
-        idx = len(records) - 1
+    if idx >= len(display_records):
+        idx = len(display_records) - 1
 
     if request.method == "POST":
         action = request.form.get("action")
@@ -75,15 +91,30 @@ def index():
             idx = int(request.form.get("index", "0"))
         except ValueError:
             idx = 0
-        # Save ground truth updates.
-        records[idx]["left ground truth"] = request.form.get("left_ground_truth", "")
-        records[idx]["right ground truth"] = request.form.get("right_ground_truth", "")
+        display_records = get_display_records()
+        if not display_records:
+            return render_template_string("<p>No records found in CSV.</p>")
+        if idx < 0:
+            idx = 0
+        if idx >= len(display_records):
+            idx = len(display_records) - 1
+
+        record = display_records[idx]
+        record["left ground truth"] = request.form.get("left_ground_truth", "")
+        record["right ground truth"] = request.form.get("right_ground_truth", "")
+        record["bad record"] = (
+            "True" if request.form.get("bad_record") == "on" else "False"
+        )
+
         if action == "prev":
             if idx > 0:
                 idx -= 1
         elif action == "next":
-            if idx < len(records) - 1:
+            if idx < len(display_records) - 1:
                 idx += 1
+            save_csv()
+        elif action == "save":
+            save_csv()
         elif action == "quit":
             save_csv()
             return render_template_string(
@@ -91,9 +122,7 @@ def index():
             )
         return redirect(url_for("index", index=idx))
 
-    record = records[idx]
-
-    # Prepare image URLs if the image file exists.
+    record = display_records[idx]
     left_path = record.get("filename left", "")
     right_path = record.get("filename right", "")
     left_img_url = (
@@ -115,6 +144,7 @@ def index():
     </head>
     <body>
       <h1>Record {{ idx + 1 }} of {{ total }}</h1>
+      {% set non_gt_fields = [] %}
       {% for field in fields %}
         <p><strong>{{ field }}:</strong> {{ record[field] }}</p>
       {% endfor %}
@@ -127,6 +157,10 @@ def index():
         <p>
           <label>right ground truth:</label>
           <input type="text" name="right_ground_truth" value="{{ record['right ground truth'] }}">
+        </p>
+        <p>
+          <label>Bad record:</label>
+          <input type="checkbox" name="bad_record" {% if record['bad record']|lower in ['true', '1', 'yes'] %}checked{% endif %}>
         </p>
         <div style="display: flex; justify-content: space-around;">
           <div>
@@ -154,14 +188,17 @@ def index():
     </body>
     </html>
     """
+    # Exclude ground truth and bad record fields from the header display.
     non_gt_fields = [
-        f for f in FIELDNAMES if f not in ["left ground truth", "right ground truth"]
+        f
+        for f in FIELDNAMES
+        if f not in ["left ground truth", "right ground truth", "bad record"]
     ]
     return render_template_string(
         template,
         record=record,
         idx=idx,
-        total=len(records),
+        total=len(display_records),
         fields=non_gt_fields,
         left_img_url=left_img_url,
         right_img_url=right_img_url,
