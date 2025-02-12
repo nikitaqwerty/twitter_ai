@@ -38,6 +38,7 @@ class CaptchaSolver:
                         "vlm right model name",
                         "left ground truth",
                         "right ground truth",
+                        "task type",
                     ]
                 )
 
@@ -52,6 +53,7 @@ class CaptchaSolver:
         right_model,
         left_ground_truth,
         right_ground_truth,
+        task_type,
     ):
         with open(self.csv_log_path, "a", newline="") as csvfile:
             writer = csv.writer(csvfile)
@@ -66,6 +68,7 @@ class CaptchaSolver:
                     right_model,
                     left_ground_truth,
                     right_ground_truth,
+                    task_type,
                 ]
             )
 
@@ -129,9 +132,84 @@ class CaptchaSolver:
         data_dir = os.path.join(os.getcwd(), "data", "captcha_screenshots")
         os.makedirs(data_dir, exist_ok=True)
 
+        # Initialize task type and prompt variables (set only once on the first round)
+        task_type = None
+        left_prompt = None
+        right_prompt = None
+
         for round_num in range(1, max_rounds + 1):
             round_start_time = time.strftime("%Y%m%d_%H%M%S")
             logging.info(f"Starting captcha round {round_num}")
+
+            # On the very first round, determine the captcha task type if submit button is clickable.
+            if round_num == 1 and task_type is None:
+                try:
+                    submit_button = self.wait_for_element_to_be_clickable(
+                        (By.XPATH, "//button[contains(text(), 'Submit')]"), timeout=5
+                    )
+                    # Capture screenshot of the captcha iframe's top 50%
+                    iframe = self.driver.find_element(
+                        By.CSS_SELECTOR, "iframe[src*='arkoselabs.com']"
+                    )
+                    with tempfile.NamedTemporaryFile(
+                        suffix=".jpg", delete=False
+                    ) as tmp:
+                        task_screenshot_path = tmp.name
+                    iframe.screenshot(task_screenshot_path)
+                    with Image.open(task_screenshot_path) as img:
+                        w, h = img.size
+                        task_img = img.crop((0, 0, w, h // 2))
+                    task_img.save(task_screenshot_path)
+                    task_prompt = (
+                        "Determine the captcha task type from the screenshot. "
+                        "The possible task types are: 'length', 'quantity', or 'seats'. "
+                        "Output only the task type word."
+                    )
+                    task_response = groq_handler.get_vlm_response(
+                        task_prompt,
+                        task_screenshot_path,
+                        model="llama-3.2-11b-vision-preview",
+                    )
+                    if task_response is None:
+                        task_type = "length"
+                    else:
+                        task_response_lower = task_response.lower()
+                        if "quantity" in task_response_lower:
+                            task_type = "quantity"
+                        elif "seats" in task_response_lower:
+                            task_type = "seats"
+                        else:
+                            task_type = "length"
+                    os.unlink(task_screenshot_path)
+                    logging.info(f"Determined captcha task type: {task_type}")
+                except Exception as e:
+                    logging.error(f"Failed to determine task type: {e}")
+                    task_type = "length"
+
+                # Define prompts based on determined task type.
+                if task_type == "length":
+                    left_prompt = (
+                        "What is the number on the picture? Output only the number."
+                    )
+                    right_prompt = (
+                        "Look at the attached image. The image shows a simple measuring scale with numerical markings. "
+                        "An object’s edge is aligned with one of these marks. Your task is to identify the numerical value on the scale "
+                        "where the object ends and output that measured length as a number (in the same units indicated on the scale). "
+                        "Provide the measurement as a round integer number in your answer."
+                    )
+                elif task_type == "quantity":
+                    left_prompt = "What is the number on the picture? Output only the number representing the count of objects."
+                    right_prompt = (
+                        "Examine the attached image. The image displays a collection of objects. Your task is to count the number of objects "
+                        "and output that number."
+                    )
+                elif task_type == "seats":
+                    left_prompt = "What are the letter and digit displayed on the left image? Provide them with no spaces."
+                    right_prompt = (
+                        "Look at the attached image. The image shows seats with one highlighted seat that contains a letter and a digit. "
+                        "Your task is to identify the letter and digit on the highlighted seat and output them concatenated (e.g., 'A1')."
+                    )
+
             # Capture the base screenshot for this round.
             try:
                 with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
@@ -162,7 +240,6 @@ class CaptchaSolver:
                 left_img.save(left_path)
             subprocess.run(["open", "-a", "Preview", left_path])
 
-            left_prompt = "What is the number on the picture? Output only the nubmer"
             left_response = groq_handler.get_vlm_response(
                 left_prompt, left_path, model="llama-3.2-11b-vision-preview"
             )
@@ -173,24 +250,38 @@ class CaptchaSolver:
                 os.unlink(screenshot_path)
                 os.unlink(left_path)
                 continue  # Try next round
-            left_numbers = re.findall(r"\d+", left_response)
-            if not left_numbers:
-                logging.error(
-                    f"Failed to extract number from left VLM response in round {round_num}."
+
+            if task_type == "seats":
+                left_match = re.search(r"([A-Za-z]\d)", left_response)
+                if not left_match:
+                    logging.error(
+                        f"Failed to extract letter and digit from left VLM response in round {round_num}."
+                    )
+                    os.unlink(screenshot_path)
+                    os.unlink(left_path)
+                    continue  # Try next round
+                left_value = left_match.group(1)
+                logging.info(
+                    f"Round {round_num} left response: {left_response} (extracted {left_value})"
                 )
-                os.unlink(screenshot_path)
-                os.unlink(left_path)
-                continue  # Try next round
-            left_number = int(left_numbers[-1])
-            logging.info(
-                f"Round {round_num} left response: {left_response} (extracted {left_number})"
-            )
+            else:
+                left_numbers = re.findall(r"\d+", left_response)
+                if not left_numbers:
+                    logging.error(
+                        f"Failed to extract number from left VLM response in round {round_num}."
+                    )
+                    os.unlink(screenshot_path)
+                    os.unlink(left_path)
+                    continue  # Try next round
+                left_value = int(left_numbers[-1])
+                logging.info(
+                    f"Round {round_num} left response: {left_response} (extracted {left_value})"
+                )
 
             # Attempt loop within the current round.
             for attempt in range(1, max_attempts + 1):
                 logging.info(f"Round {round_num} attempt {attempt}")
                 if attempt == 1:
-                    # Use the existing screenshot's right part for the first attempt.
                     right_img = cropped.crop(
                         (cropped.width // 2, 0, cropped.width, cropped.height)
                     )
@@ -241,29 +332,34 @@ class CaptchaSolver:
                     right_img.save(right_path)
                 subprocess.run(["open", "-a", "Preview", right_path])
 
-                right_prompt = (
-                    "Look at the attached image. The image shows a simple measuring scale with numerical markings."
-                    "An object’s edge is aligned with one of these marks."
-                    "Your task is to identify the numerical value on the scale where the object ends and output that measured length as a number (in the same units indicated on the scale). Provide the measurement round integer number in your answer."
-                )
                 right_response = g4f_handler.get_vlm_response(right_prompt, right_path)
                 os.unlink(right_path)
-                extracted_right = ""
-                if right_response is not None:
-                    nums = re.findall(r"\d+", right_response)
-                    if nums:
-                        extracted_right = int(nums[-1])
+                if task_type == "seats":
+                    right_match = (
+                        re.search(r"([A-Za-z]\d)", right_response)
+                        if right_response is not None
+                        else None
+                    )
+                    extracted_right = right_match.group(1) if right_match else ""
+                else:
+                    nums = (
+                        re.findall(r"\d+", right_response)
+                        if right_response is not None
+                        else []
+                    )
+                    extracted_right = int(nums[-1]) if nums else ""
                 # Log this attempt's run data to CSV.
                 self.log_run(
                     round_start_time,
                     left_perm_path,
                     right_perm_path,
-                    left_number,
+                    left_value,
                     extracted_right,
                     "llama-3.2-11b-vision-preview",
                     "gemini-2.0-flash",
                     "",
                     "",
+                    task_type,
                 )
                 if right_response is None:
                     logging.error(
@@ -286,9 +382,9 @@ class CaptchaSolver:
                     else:
                         break
 
-                if extracted_right == "":
+                if extracted_right == "" or extracted_right is None:
                     logging.error(
-                        f"Failed to extract number from right VLM response in round {round_num} attempt {attempt}."
+                        f"Failed to extract result from right VLM response in round {round_num} attempt {attempt}."
                     )
                     if attempt < max_attempts:
                         try:
@@ -310,7 +406,7 @@ class CaptchaSolver:
                 logging.info(
                     f"Round {round_num} attempt {attempt} right response: {right_response} (extracted {extracted_right})"
                 )
-                if left_number == extracted_right:
+                if left_value == extracted_right:
                     try:
                         submit_button = self.wait_for_element_to_be_clickable(
                             (By.XPATH, "//button[contains(text(), 'Submit')]"),
