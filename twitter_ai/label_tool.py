@@ -54,17 +54,14 @@ records = load_csv()
 
 
 def get_display_records():
-    # Exclude records marked as bad.
     filtered = [
         r
         for r in records
         if r.get("bad record", "").strip().lower() not in ("true", "1", "yes")
     ]
-    # Sort by run timestamp descending.
     sorted_by_timestamp = sorted(
         filtered, key=lambda r: r["run timestamp"], reverse=True
     )
-    # Then, put records with empty right ground truth first (stable sort).
     return sorted(
         sorted_by_timestamp, key=lambda r: bool(r["right ground truth"].strip())
     )
@@ -102,9 +99,19 @@ def index():
         record = display_records[idx]
         record["left ground truth"] = request.form.get("left_ground_truth", "")
         record["right ground truth"] = request.form.get("right_ground_truth", "")
+        record["task type"] = request.form.get("task_type", "")
         record["bad record"] = (
             "True" if request.form.get("bad_record") == "on" else "False"
         )
+
+        # Propagate ground truth updates to all records with the same filenames.
+        left_filename = record.get("filename left", "")
+        right_filename = record.get("filename right", "")
+        for r in records:
+            if left_filename and r.get("filename left", "") == left_filename:
+                r["left ground truth"] = record["left ground truth"]
+            if right_filename and r.get("filename right", "") == right_filename:
+                r["right ground truth"] = record["right ground truth"]
 
         if action == "prev":
             if idx > 0:
@@ -144,7 +151,6 @@ def index():
     </head>
     <body>
       <h1>Record {{ idx + 1 }} of {{ total }}</h1>
-      {% set non_gt_fields = [] %}
       {% for field in fields %}
         <p><strong>{{ field }}:</strong> {{ record[field] }}</p>
       {% endfor %}
@@ -157,6 +163,10 @@ def index():
         <p>
           <label>right ground truth:</label>
           <input type="text" name="right_ground_truth" value="{{ record['right ground truth'] }}">
+        </p>
+        <p>
+          <label>Task type:</label>
+          <input type="text" name="task_type" value="{{ record['task type'] }}">
         </p>
         <p>
           <label>Bad record:</label>
@@ -188,11 +198,11 @@ def index():
     </body>
     </html>
     """
-    # Exclude ground truth and bad record fields from the header display.
     non_gt_fields = [
         f
         for f in FIELDNAMES
-        if f not in ["left ground truth", "right ground truth", "bad record"]
+        if f
+        not in ["left ground truth", "right ground truth", "bad record", "task type"]
     ]
     return render_template_string(
         template,
