@@ -56,7 +56,6 @@ class CaptchaSolver:
 
         self.groq_model = config.get("groq_model", "llama-3.2-11b-vision-preview")
         self.g4f_model = config.get("g4f_model", "gemini-2.0-flash")
-        # Moved model configuration for the right image prompt into __init__
         self.groq_right_model = config.get(
             "groq_right_model", "llama-3.2-90b-vision-preview"
         )
@@ -140,7 +139,10 @@ class CaptchaSolver:
                     task_img.save(task_screenshot_path)
                     task_prompt = (
                         "Determine the captcha task type from the screenshot. "
-                        "The possible task types are: 'length', 'quantity', or 'seats'. "
+                        "The possible task types are: 'length', 'quantity', 'sum' or 'seats'. "
+                        "'quantity' is usually just a task to count a number of objects (like pins) "
+                        "'sum' is a task to add up numbers displayed on objects and compare to a given total. "
+                        "'seats' is usually a task to identify a seat label (e.g., 'A-glasses'). "
                         "Output only the task type word."
                     )
                     task_response = groq_handler.get_vlm_response(
@@ -156,6 +158,8 @@ class CaptchaSolver:
                             task_type = "quantity"
                         elif "seats" in task_response_lower:
                             task_type = "seats"
+                        elif "sum" in task_response_lower:
+                            task_type = "sum"
                         else:
                             task_type = "length"
                     os.unlink(task_screenshot_path)
@@ -190,6 +194,12 @@ class CaptchaSolver:
                         "Look at the attached image. The image shows seats arranged in rows and columns, with each row and column labeled by a letter and a pictogram icon. "
                         "Only one seat is occupied by a person, which is the target seat. "
                         "Identify the label corresponding to the occupied seat (e.g., 'A-glasses') and output it exactly as shown."
+                    )
+                elif task_type == "sum":
+                    left_prompt = "What is the number displayed on the left image? Output only the number."
+                    right_prompt = (
+                        "Look at the attached image. The image shows several objects, each with a number on it. "
+                        "Your task is to extract all numbers from the image, add them up, and output only the total sum as a number."
                     )
 
             # Capture the base screenshot for this round.
@@ -326,6 +336,19 @@ class CaptchaSolver:
                         else None
                     )
                     extracted_right = right_match.group(1) if right_match else ""
+                elif task_type == "sum":
+                    nums = (
+                        re.findall(r"\d+", right_response)
+                        if right_response is not None
+                        else []
+                    )
+                    if nums:
+                        extracted_right = sum(map(int, nums))
+                    else:
+                        extracted_right = ""
+                        logging.error(
+                            f"Failed to extract numbers from right VLM response for sum task in round {round_num} attempt {attempt}."
+                        )
                 else:
                     nums = (
                         re.findall(r"\d+", right_response)
@@ -384,7 +407,6 @@ class CaptchaSolver:
                                 f"Failed to click 'Next' button in round {round_num} attempt {attempt}: {e}"
                             )
                             break
-                        continue
                     else:
                         break
 
