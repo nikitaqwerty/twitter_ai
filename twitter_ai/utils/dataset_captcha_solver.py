@@ -6,10 +6,7 @@ import logging
 import time
 import os
 import tempfile
-import subprocess
 from PIL import Image, ImageChops
-from anticaptchaofficial.funcaptchaproxyless import funcaptchaProxyless
-from anticaptchaofficial.funcaptchaproxyon import funcaptchaProxyon
 from typing import Optional
 import re
 import csv
@@ -141,7 +138,9 @@ class CaptchaSolver:
                         task_img.save(task_screenshot_path)
                         task_prompt = (
                             "Determine the captcha task type from the screenshot. "
-                            "The possible task types are: 'length', 'quantity', or 'seats'. "
+                            "The possible task types are: 'length', 'quantity', 'sum' or 'seats'. "
+                            "'quantity' is usually just a task to count a number of objects (like pins)"
+                            "'sum' is usually a tusk to calculate a sum of numbers on objects (like rings)"
                             "Output only the task type word."
                         )
                         task_response = groq_handler.get_vlm_response(
