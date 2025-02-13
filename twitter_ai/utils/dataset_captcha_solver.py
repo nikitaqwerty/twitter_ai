@@ -103,8 +103,8 @@ class CaptchaSolver:
 
         groq_handler = self.GroqAPIHandler(api_key=self.config.get("GROQ_API_KEY"))
         g4f_handler = self.g4fAPIHandler(model=self.g4f_model)
-        max_rounds = 2
-        max_attempts = 5
+        max_rounds = 3
+        max_attempts = 6
 
         # Create data directory for saving screenshots
         data_dir = os.path.join(os.getcwd(), "data", "captcha_screenshots")
@@ -115,270 +115,291 @@ class CaptchaSolver:
         left_prompt = None
         right_prompt = None
 
-        for round_num in range(1, max_rounds + 1):
-            round_start_time = time.strftime("%Y%m%d_%H%M%S")
-            logging.info(f"Starting captcha round {round_num}")
+        cycles = 2  # Two cycles of rounds
+        for cycle in range(1, cycles + 1):
+            logging.info(f"Starting cycle {cycle}")
+            for round_num in range(1, max_rounds + 1):
+                round_start_time = time.strftime("%Y%m%d_%H%M%S")
+                logging.info(f"Starting cycle {cycle} round {round_num}")
 
-            # On the very first round, determine the captcha task type if submit button is clickable.
-            if round_num == 1 and task_type is None:
-                try:
-                    submit_button = self.wait_for_element_to_be_clickable(
-                        (By.XPATH, "//button[contains(text(), 'Submit')]"), timeout=5
-                    )
-                    html_elem = self.driver.find_element(By.TAG_NAME, "html")
-                    with tempfile.NamedTemporaryFile(
-                        suffix=".png", delete=False
-                    ) as tmp:
-                        task_screenshot_path = tmp.name
-                    html_elem.screenshot(task_screenshot_path)
-                    with Image.open(task_screenshot_path) as img:
-                        w, h = img.size
-                        task_img = img.crop((0, 0, w, h // 2))
-                    task_img.save(task_screenshot_path)
-                    task_prompt = (
-                        "Determine the captcha task type from the screenshot. "
-                        "The possible task types are: 'length', 'quantity', or 'seats'. "
-                        "Output only the task type word."
-                    )
-                    task_response = groq_handler.get_vlm_response(
-                        task_prompt,
-                        task_screenshot_path,
-                        model=self.groq_model,
-                    )
-                    if task_response is None:
-                        task_type = "length"
-                    else:
-                        task_response_lower = task_response.lower()
-                        if "quantity" in task_response_lower:
-                            task_type = "quantity"
-                        elif "seats" in task_response_lower:
-                            task_type = "seats"
-                        else:
-                            task_type = "length"
-                    os.unlink(task_screenshot_path)
-                    logging.info(f"Determined captcha task type: {task_type}")
-                except Exception as e:
-                    logging.error(f"Failed to determine task type: {e}")
-                    task_type = "length"
-
-                # Define prompts based on determined task type.
-                if task_type == "length":
-                    left_prompt = (
-                        "What is the number on the picture? Output only the number."
-                    )
-                    right_prompt = (
-                        "Look at the attached image. The image shows a simple measuring scale with numerical markings. "
-                        "An object’s edge is aligned with one of these marks. Your task is to identify the numerical value on the scale "
-                        "where the object ends and output that measured length as a number (in the same units indicated on the scale). "
-                        "Provide the measurement as a round integer number in your answer."
-                    )
-                elif task_type == "quantity":
-                    left_prompt = "What is the number on the picture? Output only the number representing the count of objects."
-                    right_prompt = (
-                        "Examine the attached image. The image displays a collection of objects. Your task is to count the number of objects "
-                        "and output that number."
-                    )
-                elif task_type == "seats":
-                    left_prompt = (
-                        "What is the combination of letter and pictogram icon displayed on the left image? "
-                        "Provide them concatenated (e.g., 'A-glasses')."
-                    )
-                    right_prompt = (
-                        "Look at the attached image. The image shows seats arranged in rows and columns, with each row and column labeled by a letter and a pictogram icon. "
-                        "Only one seat is occupied by a person, which is the target seat. "
-                        "Identify the label corresponding to the occupied seat (e.g., 'A-glasses') and output it exactly as shown."
-                    )
-
-            # Capture the base screenshot for this round.
-            try:
-                with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
-                    screenshot_path = tmp.name
-                iframe_html = self.driver.find_element(By.TAG_NAME, "html")
-                iframe_html.screenshot(screenshot_path)
-                with Image.open(screenshot_path) as img:
-                    w, h = img.size
-                    cropped = img.crop((0, int(h * 0.1), w, int(h * 0.5)))
-            except Exception as e:
-                logging.error(
-                    f"Failed to capture or crop screenshot in round {round_num}: {e}"
-                )
-                if os.path.exists(screenshot_path):
-                    os.unlink(screenshot_path)
-                continue
-
-            # Extract and process the left image (remains constant during the round)
-            left_img = cropped.crop((0, 0, cropped.width // 2, cropped.height))
-            left_img = remove_white_border(left_img)
-            # Save permanent copy of left image
-            left_perm_path = os.path.join(
-                data_dir, f"{round_start_time}_round{round_num}_left.jpg"
-            )
-            left_img.save(left_perm_path)
-            with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as left_temp:
-                left_path = left_temp.name
-                left_img.save(left_path)
-            # Removed preview of temp file
-
-            left_response = groq_handler.get_vlm_response(
-                left_prompt, left_path, model=self.groq_model
-            )
-            if left_response is None:
-                logging.error(
-                    f"No response from Groq VLM API for left query in round {round_num}."
-                )
-                left_value = ""
-            else:
-                if task_type == "seats":
-                    left_match = re.search(r"([A-Za-z][-][A-Za-z]+)", left_response)
-                    left_value = left_match.group(1) if left_match else ""
-                    if not left_match:
-                        logging.error(
-                            f"Failed to extract letter and icon from left VLM response in round {round_num}."
-                        )
-                else:
-                    left_numbers = re.findall(r"\d+", left_response)
-                    left_value = int(left_numbers[-1]) if left_numbers else ""
-                    if not left_numbers:
-                        logging.error(
-                            f"Failed to extract number from left VLM response in round {round_num}."
-                        )
-
-            # Instead of checking for matching values, perform fixed attempts.
-            for attempt in range(1, max_attempts + 1):
-                logging.info(f"Round {round_num} attempt {attempt}")
-                if attempt == 1:
-                    right_img = cropped.crop(
-                        (cropped.width // 2, 0, cropped.width, cropped.height)
-                    )
-                else:
-                    right_screenshot_path = None
+                # On the very first round of the first cycle, determine the captcha task type if submit button is clickable.
+                if cycle == 1 and round_num == 1 and task_type is None:
                     try:
+                        submit_button = self.wait_for_element_to_be_clickable(
+                            (By.XPATH, "//button[contains(text(), 'Submit')]"),
+                            timeout=5,
+                        )
+                        html_elem = self.driver.find_element(By.TAG_NAME, "html")
                         with tempfile.NamedTemporaryFile(
                             suffix=".png", delete=False
                         ) as tmp:
-                            right_screenshot_path = tmp.name
-                        iframe_html = self.driver.find_element(By.TAG_NAME, "html")
-                        iframe_html.screenshot(right_screenshot_path)
-                        with Image.open(right_screenshot_path) as img:
+                            task_screenshot_path = tmp.name
+                        html_elem.screenshot(task_screenshot_path)
+                        with Image.open(task_screenshot_path) as img:
                             w, h = img.size
-                            cropped_attempt = img.crop(
-                                (0, int(h * 0.1), w, int(h * 0.5))
-                            )
-                        right_img = cropped_attempt.crop(
-                            (
-                                cropped_attempt.width // 2,
-                                0,
-                                cropped_attempt.width,
-                                cropped_attempt.height,
-                            )
+                            task_img = img.crop((0, 0, w, h // 2))
+                        task_img.save(task_screenshot_path)
+                        task_prompt = (
+                            "Determine the captcha task type from the screenshot. "
+                            "The possible task types are: 'length', 'quantity', or 'seats'. "
+                            "Output only the task type word."
                         )
-                        os.unlink(right_screenshot_path)
+                        task_response = groq_handler.get_vlm_response(
+                            task_prompt,
+                            task_screenshot_path,
+                            model=self.groq_model,
+                        )
+                        if task_response is None:
+                            task_type = "length"
+                        else:
+                            task_response_lower = task_response.lower()
+                            if "quantity" in task_response_lower:
+                                task_type = "quantity"
+                            elif "seats" in task_response_lower:
+                                task_type = "seats"
+                            else:
+                                task_type = "length"
+                        os.unlink(task_screenshot_path)
+                        logging.info(f"Determined captcha task type: {task_type}")
                     except Exception as e:
-                        logging.error(
-                            f"Failed to capture right screenshot on round {round_num} attempt {attempt}: {e}"
-                        )
-                        if right_screenshot_path and os.path.exists(
-                            right_screenshot_path
-                        ):
-                            os.unlink(right_screenshot_path)
-                        continue
+                        logging.error(f"Failed to determine task type: {e}")
+                        task_type = "length"
 
-                right_img = remove_white_border(right_img)
-                # Save permanent copy of right image
-                right_perm_path = os.path.join(
+                    # Define prompts based on determined task type.
+                    if task_type == "length":
+                        left_prompt = (
+                            "What is the number on the picture? Output only the number."
+                        )
+                        right_prompt = (
+                            "Look at the attached image. The image shows a simple measuring scale with numerical markings. "
+                            "An object’s edge is aligned with one of these marks. Your task is to identify the numerical value on the scale "
+                            "where the object ends and output that measured length as a number (in the same units indicated on the scale). "
+                            "Provide the measurement as a round integer number in your answer."
+                        )
+                    elif task_type == "quantity":
+                        left_prompt = "What is the number on the picture? Output only the number representing the count of objects."
+                        right_prompt = (
+                            "Examine the attached image. The image displays a collection of objects. Your task is to count the number of objects "
+                            "and output that number."
+                        )
+                    elif task_type == "seats":
+                        left_prompt = (
+                            "What is the combination of letter and pictogram icon displayed on the left image? "
+                            "Provide them concatenated (e.g., 'A-glasses')."
+                        )
+                        right_prompt = (
+                            "Look at the attached image. The image shows seats arranged in rows and columns, with each row and column labeled by a letter and a pictogram icon. "
+                            "Only one seat is occupied by a person, which is the target seat. "
+                            "Identify the label corresponding to the occupied seat (e.g., 'A-glasses') and output it exactly as shown."
+                        )
+
+                # Capture the base screenshot for this round.
+                try:
+                    with tempfile.NamedTemporaryFile(
+                        suffix=".png", delete=False
+                    ) as tmp:
+                        screenshot_path = tmp.name
+                    iframe_html = self.driver.find_element(By.TAG_NAME, "html")
+                    iframe_html.screenshot(screenshot_path)
+                    with Image.open(screenshot_path) as img:
+                        w, h = img.size
+                        cropped = img.crop((0, int(h * 0.1), w, int(h * 0.5)))
+                except Exception as e:
+                    logging.error(
+                        f"Failed to capture or crop screenshot in cycle {cycle} round {round_num}: {e}"
+                    )
+                    if os.path.exists(screenshot_path):
+                        os.unlink(screenshot_path)
+                    continue
+
+                # Extract and process the left image (remains constant during the round)
+                left_img = cropped.crop((0, 0, cropped.width // 2, cropped.height))
+                left_img = remove_white_border(left_img)
+                # Save permanent copy of left image
+                left_perm_path = os.path.join(
                     data_dir,
-                    f"{round_start_time}_round{round_num}_attempt{attempt}_right.jpg",
+                    f"{round_start_time}_cycle{cycle}_round{round_num}_left.jpg",
                 )
-                right_img.save(right_perm_path)
+                left_img.save(left_perm_path)
                 with tempfile.NamedTemporaryFile(
                     suffix=".jpg", delete=False
-                ) as right_temp:
-                    right_path = right_temp.name
-                    right_img.save(right_path)
-                # Removed preview of temp file
+                ) as left_temp:
+                    left_path = left_temp.name
+                    left_img.save(left_path)
 
-                # Use Groq for the right prompt with the new model from config.
-                right_response = groq_handler.get_vlm_response(
-                    right_prompt, right_path, model=self.groq_right_model
+                left_response = groq_handler.get_vlm_response(
+                    left_prompt, left_path, model=self.groq_model
                 )
-                os.unlink(right_path)
-                if right_response is None:
+                if left_response is None:
                     logging.error(
-                        f"No response from Groq VLM API for right query in round {round_num} attempt {attempt}."
+                        f"No response from Groq VLM API for left query in cycle {cycle} round {round_num}."
                     )
-                    extracted_right = ""
+                    left_value = ""
                 else:
                     if task_type == "seats":
-                        right_match = re.search(
-                            r"([A-Za-z][-][A-Za-z]+)", right_response
-                        )
-                        extracted_right = right_match.group(1) if right_match else ""
-                        if not right_match:
+                        left_match = re.search(r"([A-Za-z][-][A-Za-z]+)", left_response)
+                        left_value = left_match.group(1) if left_match else ""
+                        if not left_match:
                             logging.error(
-                                f"Failed to extract letter and icon from right VLM response in round {round_num} attempt {attempt}."
+                                f"Failed to extract letter and icon from left VLM response in cycle {cycle} round {round_num}."
                             )
                     else:
-                        nums = re.findall(r"\d+", right_response)
-                        extracted_right = int(nums[-1]) if nums else ""
-                        if not nums:
+                        left_numbers = re.findall(r"\d+", left_response)
+                        left_value = int(left_numbers[-1]) if left_numbers else ""
+                        if not left_numbers:
                             logging.error(
-                                f"Failed to extract number from right VLM response in round {round_num} attempt {attempt}."
+                                f"Failed to extract number from left VLM response in cycle {cycle} round {round_num}."
                             )
-                logging.info(
-                    f"Round {round_num} attempt {attempt} right response: {right_response} (extracted {extracted_right})"
-                )
-                self.log_run(
-                    round_start_time,
-                    left_perm_path,
-                    right_perm_path,
-                    left_value,
-                    extracted_right,
-                    self.groq_model,
-                    self.groq_right_model,
-                    "",
-                    "",
-                    task_type,
-                )
-                # If not the last attempt, click 'Next' to load a new right image.
-                if attempt < max_attempts:
-                    try:
-                        next_button = self.wait_for_element_to_be_clickable(
-                            (By.XPATH, "//a[@aria-label='Navigate to next image']"),
-                            timeout=10,
+
+                # Fixed attempts for the right image.
+                for attempt in range(1, max_attempts + 1):
+                    logging.info(f"Cycle {cycle} round {round_num} attempt {attempt}")
+                    if attempt == 1:
+                        right_img = cropped.crop(
+                            (cropped.width // 2, 0, cropped.width, cropped.height)
                         )
-                        next_button.click()
-                        time.sleep(3)
-                    except Exception as e:
+                    else:
+                        right_screenshot_path = None
+                        try:
+                            with tempfile.NamedTemporaryFile(
+                                suffix=".png", delete=False
+                            ) as tmp:
+                                right_screenshot_path = tmp.name
+                            iframe_html = self.driver.find_element(By.TAG_NAME, "html")
+                            iframe_html.screenshot(right_screenshot_path)
+                            with Image.open(right_screenshot_path) as img:
+                                w, h = img.size
+                                cropped_attempt = img.crop(
+                                    (0, int(h * 0.1), w, int(h * 0.5))
+                                )
+                            right_img = cropped_attempt.crop(
+                                (
+                                    cropped_attempt.width // 2,
+                                    0,
+                                    cropped_attempt.width,
+                                    cropped_attempt.height,
+                                )
+                            )
+                            os.unlink(right_screenshot_path)
+                        except Exception as e:
+                            logging.error(
+                                f"Failed to capture right screenshot on cycle {cycle} round {round_num} attempt {attempt}: {e}"
+                            )
+                            if right_screenshot_path and os.path.exists(
+                                right_screenshot_path
+                            ):
+                                os.unlink(right_screenshot_path)
+                            continue
+
+                    right_img = remove_white_border(right_img)
+                    # Save permanent copy of right image
+                    right_perm_path = os.path.join(
+                        data_dir,
+                        f"{round_start_time}_cycle{cycle}_round{round_num}_attempt{attempt}_right.jpg",
+                    )
+                    right_img.save(right_perm_path)
+                    with tempfile.NamedTemporaryFile(
+                        suffix=".jpg", delete=False
+                    ) as right_temp:
+                        right_path = right_temp.name
+                        right_img.save(right_path)
+
+                    right_response = groq_handler.get_vlm_response(
+                        right_prompt, right_path, model=self.groq_right_model
+                    )
+                    os.unlink(right_path)
+                    if right_response is None:
                         logging.error(
-                            f"Failed to click 'Next' button in round {round_num} attempt {attempt}: {e}"
+                            f"No response from Groq VLM API for right query in cycle {cycle} round {round_num} attempt {attempt}."
                         )
-                        break
+                        extracted_right = ""
+                    else:
+                        if task_type == "seats":
+                            right_match = re.search(
+                                r"([A-Za-z][-][A-Za-z]+)", right_response
+                            )
+                            extracted_right = (
+                                right_match.group(1) if right_match else ""
+                            )
+                            if not right_match:
+                                logging.error(
+                                    f"Failed to extract letter and icon from right VLM response in cycle {cycle} round {round_num} attempt {attempt}."
+                                )
+                        else:
+                            nums = re.findall(r"\d+", right_response)
+                            extracted_right = int(nums[-1]) if nums else ""
+                            if not nums:
+                                logging.error(
+                                    f"Failed to extract number from right VLM response in cycle {cycle} round {round_num} attempt {attempt}."
+                                )
+                    logging.info(
+                        f"Cycle {cycle} round {round_num} attempt {attempt} right response: {right_response} (extracted {extracted_right})"
+                    )
+                    self.log_run(
+                        round_start_time,
+                        left_perm_path,
+                        right_perm_path,
+                        left_value,
+                        extracted_right,
+                        self.groq_model,
+                        self.groq_right_model,
+                        "",
+                        "",
+                        task_type,
+                    )
+                    # If not the last attempt, click 'Next' to load a new right image.
+                    if attempt < max_attempts:
+                        try:
+                            next_button = self.wait_for_element_to_be_clickable(
+                                (By.XPATH, "//a[@aria-label='Navigate to next image']"),
+                                timeout=10,
+                            )
+                            next_button.click()
+                            time.sleep(3)
+                        except Exception as e:
+                            logging.error(
+                                f"Failed to click 'Next' button in cycle {cycle} round {round_num} attempt {attempt}: {e}"
+                            )
+                            break
 
-            # After fixed attempts, click submit unconditionally.
-            try:
-                submit_button = self.wait_for_element_to_be_clickable(
-                    (By.XPATH, "//button[contains(text(), 'Submit')]"),
-                    timeout=10,
-                )
-                submit_button.click()
-                time.sleep(5)  # Wait for captcha processing
-            except Exception as e:
-                logging.error(
-                    f"Failed to click 'Submit' button in round {round_num}: {e}"
-                )
+                # After fixed attempts, click submit unconditionally.
+                try:
+                    submit_button = self.wait_for_element_to_be_clickable(
+                        (By.XPATH, "//button[contains(text(), 'Submit')]"),
+                        timeout=10,
+                    )
+                    submit_button.click()
+                    time.sleep(5)  # Wait for captcha processing
+                except Exception as e:
+                    logging.error(
+                        f"Failed to click 'Submit' button in cycle {cycle} round {round_num}: {e}"
+                    )
 
-            # Cleanup round-specific temporary files.
-            if os.path.exists(screenshot_path):
-                os.unlink(screenshot_path)
-            if os.path.exists(left_path):
-                os.unlink(left_path)
+                # Cleanup round-specific temporary files.
+                if os.path.exists(screenshot_path):
+                    os.unlink(screenshot_path)
+                if os.path.exists(left_path):
+                    os.unlink(left_path)
 
-            # After 3 rounds, quit the code.
-            if round_num == max_rounds:
-                logging.info("Completed 3 rounds of data collection. Exiting.")
-                return True
-        logging.error("Exceeded maximum captcha rounds unexpectedly.")
-        return False
+            # After the first cycle, wait for the "Try again" button and click it.
+            if cycle == 1:
+                logging.info("Waiting 10 seconds for 'Try again' button...")
+                time.sleep(10)
+                try:
+                    try_again_button = self.wait_for_element_to_be_clickable(
+                        (By.XPATH, "//button[contains(text(), 'Try again')]"),
+                        timeout=10,
+                    )
+                    try_again_button.click()
+                    logging.info("'Try again' button clicked. Starting next cycle.")
+                except Exception as e:
+                    logging.error(
+                        f"Failed to click 'Try again' button after cycle {cycle}: {e}"
+                    )
+                    return False
+
+        logging.info("Completed both cycles of data collection. Exiting.")
+        return True
 
     def handle_arkose_iframe_authentication(self) -> bool:
         try:
