@@ -57,7 +57,7 @@ def get_display_records():
     filtered = [
         r
         for r in records
-        if r.get("bad record", "").strip().lower() not in ("true", "1", "yes")
+        if (r.get("bad record") or "").strip().lower() not in ("true", "1", "yes")
     ]
     sorted_by_timestamp = sorted(
         filtered, key=lambda r: r["run timestamp"], reverse=True
