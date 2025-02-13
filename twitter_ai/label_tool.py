@@ -113,6 +113,12 @@ def index():
             if right_filename and r.get("filename right", "") == right_filename:
                 r["right ground truth"] = record["right ground truth"]
 
+        # Propagate task type updates to all records with the same run timestamp.
+        timestamp = record.get("run timestamp", "")
+        for r in records:
+            if r.get("run timestamp", "") == timestamp:
+                r["task type"] = record["task type"]
+
         if action == "prev":
             if idx > 0:
                 idx -= 1
