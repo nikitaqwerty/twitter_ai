@@ -141,7 +141,7 @@ class CaptchaSolver:
                             "The possible task types are: 'length', 'quantity', 'sum' or 'seats'. "
                             "'quantity' is usually just a task to count a number of objects (like pins) "
                             "'sum' is a task to add up numbers displayed on objects and compare to a given total. "
-                            "'seats' is usually a task to identify a seat label (e.g., 'A-glasses'). "
+                            "'seats' is usually a task to identify a seat label composed of a letter and a 1 or 2 digit number (e.g., 'A-1' or 'B-12'). "
                             "Output only the task type word."
                         )
                         task_response = groq_handler.get_vlm_response(
@@ -186,13 +186,13 @@ class CaptchaSolver:
                         )
                     elif task_type == "seats":
                         left_prompt = (
-                            "What is the combination of letter and pictogram icon displayed on the left image? "
-                            "Provide them concatenated (e.g., 'A-glasses')."
+                            "What is the combination of a letter and a 1 or 2 digit number displayed on the left image? "
+                            "Provide them concatenated with a dash (e.g., 'A-1' or 'A-12')."
                         )
                         right_prompt = (
-                            "Look at the attached image. The image shows seats arranged in rows and columns, with each row and column labeled by a letter and a pictogram icon. "
+                            "Look at the attached image. The image shows seats arranged in rows and columns, with each seat labeled by a letter and a 1 or 2 digit number. "
                             "Only one seat is occupied by a person, which is the target seat. "
-                            "Identify the label corresponding to the occupied seat (e.g., 'A-glasses') and output it exactly as shown."
+                            "Identify the label corresponding to the occupied seat and output it exactly as shown (e.g., 'A-1' or 'A-12')."
                         )
                     elif task_type == "sum":
                         left_prompt = "What is the number displayed on the left image? Output only the number."
@@ -245,11 +245,11 @@ class CaptchaSolver:
                     left_value = ""
                 else:
                     if task_type == "seats":
-                        left_match = re.search(r"([A-Za-z][-][A-Za-z]+)", left_response)
+                        left_match = re.search(r"([A-Za-z]-\d{1,2})", left_response)
                         left_value = left_match.group(1) if left_match else ""
                         if not left_match:
                             logging.error(
-                                f"Failed to extract letter and icon from left VLM response in cycle {cycle} round {round_num}."
+                                f"Failed to extract letter and number from left VLM response in cycle {cycle} round {round_num}."
                             )
                     else:
                         left_numbers = re.findall(r"\d+", left_response)
@@ -324,14 +324,14 @@ class CaptchaSolver:
                     else:
                         if task_type == "seats":
                             right_match = re.search(
-                                r"([A-Za-z][-][A-Za-z]+)", right_response
+                                r"([A-Za-z]-\d{1,2})", right_response
                             )
                             extracted_right = (
                                 right_match.group(1) if right_match else ""
                             )
                             if not right_match:
                                 logging.error(
-                                    f"Failed to extract letter and icon from right VLM response in cycle {cycle} round {round_num} attempt {attempt}."
+                                    f"Failed to extract letter and number from right VLM response in cycle {cycle} round {round_num} attempt {attempt}."
                                 )
                         elif task_type == "sum":
                             nums = re.findall(r"\d+", right_response)
