@@ -244,6 +244,23 @@ def index():
         {% for t in current_filter %}
           <input type="hidden" name="filter_task_type" value="{{ t }}">
         {% endfor %}
+        <!-- Images container moved above input fields -->
+        <div class="images-container">
+          <div>
+            {% if left_img_url %}
+              <img src="{{ left_img_url }}">
+            {% else %}
+              <p>Left image not found</p>
+            {% endif %}
+          </div>
+          <div>
+            {% if right_img_url %}
+              <img src="{{ right_img_url }}">
+            {% else %}
+              <p>Right image not found</p>
+            {% endif %}
+          </div>
+        </div>
         <p>
           <label>left ground truth:</label>
           <input type="text" name="left_ground_truth" value="{{ record['left ground truth'] or record['vlm output extracted number left'] }}">
@@ -266,22 +283,6 @@ def index():
           <label>Bad record:</label>
           <input type="checkbox" name="bad_record" {% if record['bad record']|lower in ['true', '1', 'yes'] %}checked{% endif %}>
         </p>
-        <div class="images-container">
-          <div>
-            {% if left_img_url %}
-              <img src="{{ left_img_url }}">
-            {% else %}
-              <p>Left image not found</p>
-            {% endif %}
-          </div>
-          <div>
-            {% if right_img_url %}
-              <img src="{{ right_img_url }}">
-            {% else %}
-              <p>Right image not found</p>
-            {% endif %}
-          </div>
-        </div>
         <p>
           <button type="submit" name="action" value="prev">Previous</button>
           <button type="submit" name="action" value="save">Save</button>
