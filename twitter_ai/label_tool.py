@@ -239,7 +239,7 @@ def index():
       {% for field in fields %}
         <p><strong>{{ field }}:</strong> {{ record[field] }}</p>
       {% endfor %}
-      <form method="post">
+      <form id="labeling-form" method="post">
         <input type="hidden" name="index" value="{{ idx }}">
         {% for t in current_filter %}
           <input type="hidden" name="filter_task_type" value="{{ t }}">
@@ -288,6 +288,17 @@ def index():
           <button type="submit" name="action" value="next">Next</button>
           <button type="submit" name="action" value="quit">Quit</button>
         </p>
+        <script>
+          document.addEventListener("DOMContentLoaded", function() {
+            var form = document.getElementById("labeling-form");
+            form.addEventListener("keydown", function(e) {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                form.querySelector("button[name='action'][value='next']").click();
+              }
+            });
+          });
+        </script>
       </form>
     </body>
     </html>
