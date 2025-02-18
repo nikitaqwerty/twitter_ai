@@ -18,4 +18,9 @@ accounts.txt
 tst.json
 proxies.csv
 proxy_auth_plugin.zip
-har_and_cookies/blackbox.json
+har_and_cookies
+.ipynb_checkpoints
+.pytest_cache
+.virtual_documents
+anaconda_projects
+har_and_cookies
