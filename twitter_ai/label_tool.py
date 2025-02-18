@@ -178,6 +178,17 @@ def index():
     <html>
     <head>
       <title>Runs CSV Labeling Tool</title>
+      <style>
+        .images-container {
+          display: flex;
+          justify-content: flex-start;
+          gap: 4px;
+        }
+        .images-container img {
+          max-width: 400px;
+          max-height: 400px;
+        }
+      </style>
     </head>
     <body>
       <form method="get">
@@ -223,17 +234,17 @@ def index():
           <label>Bad record:</label>
           <input type="checkbox" name="bad_record" {% if record['bad record']|lower in ['true', '1', 'yes'] %}checked{% endif %}>
         </p>
-        <div style="display: flex; justify-content: space-around;">
+        <div class="images-container">
           <div>
             {% if left_img_url %}
-              <img src="{{ left_img_url }}" style="max-width:400px; max-height:400px;">
+              <img src="{{ left_img_url }}">
             {% else %}
               <p>Left image not found</p>
             {% endif %}
           </div>
           <div>
             {% if right_img_url %}
-              <img src="{{ right_img_url }}" style="max-width:400px; max-height:400px;">
+              <img src="{{ right_img_url }}">
             {% else %}
               <p>Right image not found</p>
             {% endif %}
