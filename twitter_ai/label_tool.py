@@ -53,12 +53,14 @@ def save_csv():
 records = load_csv()
 
 
-def get_display_records():
+def get_display_records(task_filter=None):
     filtered = [
         r
         for r in records
         if (r.get("bad record") or "").strip().lower() not in ("true", "1", "yes")
     ]
+    if task_filter:
+        filtered = [r for r in filtered if r.get("task type", "") in task_filter]
     sorted_by_timestamp = sorted(
         filtered, key=lambda r: r["run timestamp"], reverse=True
     )
@@ -69,12 +71,16 @@ def get_display_records():
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-    display_records = get_display_records()
+    # Get current filter from GET or POST values.
+    current_filter = request.values.getlist("filter_task_type")
+    display_records = get_display_records(
+        task_filter=current_filter if current_filter else None
+    )
     if not display_records:
         return render_template_string("<p>No records found in CSV.</p>")
 
     try:
-        idx = int(request.args.get("index", "0"))
+        idx = int(request.values.get("index", "0"))
     except ValueError:
         idx = 0
     if idx < 0:
@@ -88,7 +94,9 @@ def index():
             idx = int(request.form.get("index", "0"))
         except ValueError:
             idx = 0
-        display_records = get_display_records()
+        display_records = get_display_records(
+            task_filter=current_filter if current_filter else None
+        )
         if not display_records:
             return render_template_string("<p>No records found in CSV.</p>")
         if idx < 0:
@@ -133,7 +141,7 @@ def index():
             return render_template_string(
                 "<p>CSV file saved successfully. You may now close your browser.</p>"
             )
-        return redirect(url_for("index", index=idx))
+        return redirect(url_for("index", index=idx, filter_task_type=current_filter))
 
     record = display_records[idx]
     left_path = record.get("filename left", "")
@@ -149,6 +157,15 @@ def index():
         else None
     )
 
+    # Compute distinct task types for the filter checklist.
+    task_types = sorted(
+        {
+            r.get("task type", "").strip()
+            for r in records
+            if r.get("task type", "").strip()
+        }
+    )
+
     template = """
     <!doctype html>
     <html>
@@ -156,12 +173,27 @@ def index():
       <title>Runs CSV Labeling Tool</title>
     </head>
     <body>
+      <form method="get">
+        <fieldset>
+          <legend>Filter by Task Type</legend>
+          {% for t in task_types %}
+            <label>
+              <input type="checkbox" name="filter_task_type" value="{{ t }}" {% if t in current_filter %}checked{% endif %}>
+              {{ t }}
+            </label>
+          {% endfor %}
+        </fieldset>
+        <button type="submit">Apply Filter</button>
+      </form>
       <h1>Record {{ idx + 1 }} of {{ total }}</h1>
       {% for field in fields %}
         <p><strong>{{ field }}:</strong> {{ record[field] }}</p>
       {% endfor %}
       <form method="post">
         <input type="hidden" name="index" value="{{ idx }}">
+        {% for t in current_filter %}
+          <input type="hidden" name="filter_task_type" value="{{ t }}">
+        {% endfor %}
         <p>
           <label>left ground truth:</label>
           <input type="text" name="left_ground_truth" value="{{ record['left ground truth'] }}">
@@ -218,6 +250,8 @@ def index():
         fields=non_gt_fields,
         left_img_url=left_img_url,
         right_img_url=right_img_url,
+        task_types=task_types,
+        current_filter=current_filter,
     )
 
 
