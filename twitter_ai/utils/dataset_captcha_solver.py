@@ -139,7 +139,8 @@ class CaptchaSolver:
                         task_prompt = (
                             "Determine the captcha task type from the screenshot. "
                             "The possible task types are: 'length', 'quantity', 'sum' or 'seats'. "
-                            "'quantity' is usually just a task to count a number of objects (like pins) "
+                            "'length' is usually a task to get a measurement of an object on scale"
+                            "'quantity' is usually a task to count a number of objects (like pins) "
                             "'sum' is a task to add up numbers displayed on objects and compare to a given total. "
                             "'seats' is usually a task to identify a seat label composed of a letter and a 1 or 2 digit number (e.g., 'A-1' or 'B-12'). "
                             "Output only the task type word."
@@ -147,7 +148,7 @@ class CaptchaSolver:
                         task_response = groq_handler.get_vlm_response(
                             task_prompt,
                             task_screenshot_path,
-                            model=self.groq_model,
+                            model=self.groq_right_model,
                         )
                         if task_response is None:
                             task_type = "length"
