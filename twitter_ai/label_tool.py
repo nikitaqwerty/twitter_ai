@@ -94,8 +94,11 @@ def get_stats(task_type):
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-    # Get current filter from GET or POST values.
+    # Process filter parameters: if a single comma-separated string is provided, split it.
     current_filter = request.values.getlist("filter_task_type")
+    if len(current_filter) == 1 and current_filter[0] and "," in current_filter[0]:
+        current_filter = current_filter[0].split(",")
+
     display_records = get_display_records(
         task_filter=current_filter if current_filter else None
     )
@@ -170,7 +173,10 @@ def index():
             return render_template_string(
                 "<p>CSV file saved successfully. You may now close your browser.</p>"
             )
-        return redirect(url_for("index", index=idx, filter_task_type=current_filter))
+        # Redirect with a comma-separated filter to keep URL length minimal.
+        return redirect(
+            url_for("index", index=idx, filter_task_type=",".join(current_filter))
+        )
 
     record = display_records[idx]
     left_path = record.get("filename left", "")
