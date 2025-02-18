@@ -69,11 +69,20 @@ def main():
         writer.writeheader()
         writer.writerows(rows)
 
-    # Create a minimal README.
+    # Create a minimal README with YAML metadata to address the warning.
     readme = os.path.join(NEW_DATASET_DIR, "README.md")
     with open(readme, "w") as f:
         f.write(
-            "# Length Captchas Dataset\n\nConverted dataset from twitter_ai label tool.\n"
+            """---
+tags:
+  - captcha
+  - dataset
+license: mit
+---
+# Length Captchas Dataset
+
+Converted dataset from twitter_ai label tool.
+"""
         )
 
     # Create the dataset repository on Hugging Face (if it doesn't exist)
