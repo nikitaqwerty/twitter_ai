@@ -70,6 +70,28 @@ def get_display_records(task_filter=None):
     )
 
 
+def get_stats(task_type):
+    task = task_type.strip().lower()
+    total = 0
+    labeled = 0
+    for r in records:
+        if r.get("task type", "").strip().lower() == task:
+            total += 1
+            if task == "length":
+                if (
+                    r.get("right ground truth", "").strip()
+                    and r.get("first_scale_value", "").strip()
+                ):
+                    labeled += 1
+            else:
+                if (
+                    r.get("left ground truth", "").strip()
+                    and r.get("right ground truth", "").strip()
+                ):
+                    labeled += 1
+    return labeled, total
+
+
 @app.route("/", methods=["GET", "POST"])
 def index():
     # Get current filter from GET or POST values.
@@ -173,6 +195,13 @@ def index():
         }
     )
 
+    # Compute labeling statistics for current task type.
+    current_task = record.get("task type", "").strip()
+    if current_task:
+        task_labeled, task_total = get_stats(current_task)
+    else:
+        task_labeled, task_total = 0, 0
+
     template = """
     <!doctype html>
     <html>
@@ -204,6 +233,9 @@ def index():
         <button type="submit">Apply Filter</button>
       </form>
       <h1>Record {{ idx + 1 }} of {{ total }}</h1>
+      {% if record['task type'] %}
+        <p>Statistics for "{{ record['task type'] }}": Labeled {{ task_labeled }} out of {{ task_total }}</p>
+      {% endif %}
       {% for field in fields %}
         <p><strong>{{ field }}:</strong> {{ record[field] }}</p>
       {% endfor %}
@@ -276,6 +308,8 @@ def index():
         right_img_url=right_img_url,
         task_types=task_types,
         current_filter=current_filter,
+        task_labeled=task_labeled,
+        task_total=task_total,
     )
 
 
