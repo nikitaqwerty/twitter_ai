@@ -8,7 +8,7 @@ import shutil
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from twitter_ai.utils.config import Config
-from huggingface_hub import Repository, create_repo
+from huggingface_hub import create_repo, HfApi, upload_folder
 
 # Paths
 RAW_CSV = "/Users/nikita/projects/twitter_ai/data/runs.csv"
@@ -83,15 +83,15 @@ def main():
     except Exception as e:
         print("Repo creation may have been skipped:", e)
 
-    # Clone (or initialize) and push the new dataset folder.
-    repo = Repository(
-        local_dir=NEW_DATASET_DIR,
-        clone_from="nikita-nrg/length_captchas",
-        use_auth_token=True,
+    # Upload the dataset folder using the HTTP-based alternative.
+    api = HfApi()
+    api.upload_folder(
+        folder_path=NEW_DATASET_DIR,
+        repo_id="nikita-nrg/length_captchas",
+        repo_type="dataset",
+        token=token,
+        commit_message="Upload length captchas dataset",
     )
-    repo.git_add(auto_lfs_track=True)
-    repo.git_commit("Upload length captchas dataset")
-    repo.git_push()
 
 
 if __name__ == "__main__":
