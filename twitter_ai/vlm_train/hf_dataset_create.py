@@ -1,7 +1,13 @@
 import os
+import sys
 import csv
 import shutil
-from utils.config import Config
+
+# Ensure the repository root is in PYTHONPATH.
+# This allows absolute imports like "from twitter_ai.utils.config import Config"
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+
+from twitter_ai.utils.config import Config
 from huggingface_hub import Repository, create_repo
 
 # Paths
