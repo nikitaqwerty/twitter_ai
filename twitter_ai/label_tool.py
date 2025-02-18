@@ -173,9 +173,10 @@ def index():
             return render_template_string(
                 "<p>CSV file saved successfully. You may now close your browser.</p>"
             )
-        # Redirect with a comma-separated filter to keep URL length minimal.
+        # Deduplicate filter values before redirecting.
+        unique_filter = list(dict.fromkeys(current_filter))
         return redirect(
-            url_for("index", index=idx, filter_task_type=",".join(current_filter))
+            url_for("index", index=idx, filter_task_type=",".join(unique_filter))
         )
 
     record = display_records[idx]
