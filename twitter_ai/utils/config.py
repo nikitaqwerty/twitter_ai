@@ -25,6 +25,7 @@ class Config:
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
     COOKIES_DIR = os.getenv("COOKIES_DIR")
     ANTI_CAPTCHA_KEY = os.getenv("ANTI_CAPTCHA_KEY")
+    HF_TOKEN = os.getenv("HF_TOKEN")
 
     @staticmethod
     def get_twitter_accounts():
