@@ -203,7 +203,7 @@ def index():
         {% endfor %}
         <p>
           <label>left ground truth:</label>
-          <input type="text" name="left_ground_truth" value="{{ record['left ground truth'] }}">
+          <input type="text" name="left_ground_truth" value="{{ record['left ground truth'] or record['vlm output extracted number left'] }}">
         </p>
         <p>
           <label>right ground truth:</label>
