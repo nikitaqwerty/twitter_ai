@@ -344,7 +344,7 @@ class CaptchaSolver:
                         else []
                     )
                     if nums:
-                        extracted_right = sum(map(int, nums))
+                        extracted_right = int(nums[-1])
                     else:
                         extracted_right = ""
                         logging.error(

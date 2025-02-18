@@ -337,7 +337,7 @@ class CaptchaSolver:
                         elif task_type == "sum":
                             nums = re.findall(r"\d+", right_response)
                             if nums:
-                                extracted_right = sum(map(int, nums))
+                                extracted_right = int(nums[-1])
                             else:
                                 extracted_right = ""
                                 logging.error(
