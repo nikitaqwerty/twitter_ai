@@ -25,6 +25,7 @@ FIELDNAMES = [
     "left ground truth",
     "right ground truth",
     "task type",
+    "first_scale_value",  # New field for 'length' task type
     "bad record",
 ]
 
@@ -112,6 +113,10 @@ def index():
             "True" if request.form.get("bad_record") == "on" else "False"
         )
 
+        # Update first_scale_value if task type is 'length'
+        if record["task type"].strip().lower() == "length":
+            record["first_scale_value"] = request.form.get("first_scale_value", "")
+
         # Propagate ground truth updates to all records with the same filenames.
         left_filename = record.get("filename left", "")
         right_filename = record.get("filename right", "")
@@ -121,11 +126,13 @@ def index():
             if right_filename and r.get("filename right", "") == right_filename:
                 r["right ground truth"] = record["right ground truth"]
 
-        # Propagate task type updates to all records with the same run timestamp.
+        # Propagate task type updates (and first_scale_value for 'length') to all records with the same run timestamp.
         timestamp = record.get("run timestamp", "")
         for r in records:
             if r.get("run timestamp", "") == timestamp:
                 r["task type"] = record["task type"]
+                if record["task type"].strip().lower() == "length":
+                    r["first_scale_value"] = record.get("first_scale_value", "")
 
         if action == "prev":
             if idx > 0:
@@ -206,6 +213,12 @@ def index():
           <label>Task type:</label>
           <input type="text" name="task_type" value="{{ record['task type'] }}">
         </p>
+        {% if record['task type']|lower == 'length' %}
+        <p>
+          <label>First scale value:</label>
+          <input type="text" name="first_scale_value" value="{{ record.get('first_scale_value', '') }}">
+        </p>
+        {% endif %}
         <p>
           <label>Bad record:</label>
           <input type="checkbox" name="bad_record" {% if record['bad record']|lower in ['true', '1', 'yes'] %}checked{% endif %}>
