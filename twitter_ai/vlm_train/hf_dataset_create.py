@@ -16,6 +16,10 @@ IMAGES_DIR = os.path.join(NEW_DATASET_DIR, "images")
 
 
 def main():
+    # Clean up NEW_DATASET_DIR if it exists.
+    if os.path.exists(NEW_DATASET_DIR):
+        shutil.rmtree(NEW_DATASET_DIR)
+
     os.makedirs(IMAGES_DIR, exist_ok=True)
 
     # Read CSV and fill missing values.
