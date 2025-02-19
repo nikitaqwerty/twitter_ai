@@ -14,6 +14,9 @@ RAW_CSV = "/Users/nikita/projects/twitter_ai/data/runs.csv"
 NEW_DATASET_DIR = "length_captchas"
 IMAGES_DIR = os.path.join(NEW_DATASET_DIR, "images")
 
+# Base URL for the uploaded images on Hugging Face Hub.
+REPO_URL = "https://huggingface.co/datasets/nikita-nrg/length_captchas/resolve/main"
+
 
 def main():
     # Clean up NEW_DATASET_DIR if it exists.
@@ -42,15 +45,15 @@ def main():
     )
     df = df[mask].copy()
 
-    # Process the right image: copy image if exists and update relative path.
+    # Process the right image: copy image if exists and update to URL.
     def process_image(path):
         if path and os.path.exists(path):
             base = os.path.basename(path)
-            new_rel = os.path.join("images", base)
             new_abs = os.path.join(IMAGES_DIR, base)
             if not os.path.exists(new_abs):
                 shutil.copy2(path, new_abs)
-            return new_rel
+            # Return the URL pointing to the image on HF Hub.
+            return f"{REPO_URL}/images/{base}"
         return ""
 
     # Create multimodal columns.
