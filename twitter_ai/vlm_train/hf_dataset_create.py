@@ -24,7 +24,7 @@ def filter_row(row):
       - right ground truth must not be empty
       - first_scale_value must not be empty
     """
-    if row.get("task_type", "").strip().lower() != "length":
+    if row.get("task type", "").strip().lower() != "length":
         return False
     br = row.get("bad record", "").strip().lower()
     if br not in ("", "false"):
