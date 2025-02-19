@@ -1,10 +1,9 @@
 import os
 import sys
-import csv
 import shutil
+import pandas as pd
 
 # Ensure the repository root is in PYTHONPATH.
-# This allows absolute imports like "from twitter_ai.utils.config import Config"
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from twitter_ai.utils.config import Config
@@ -16,60 +15,48 @@ NEW_DATASET_DIR = "length_captchas"
 IMAGES_DIR = os.path.join(NEW_DATASET_DIR, "images")
 
 
-def filter_row(row):
-    """
-    Filter a CSV row based on specific conditions:
-      - task_type must be "length"
-      - bad record must be "FALSE" or empty
-      - right ground truth must not be empty
-      - first_scale_value must not be empty
-    """
-    if row.get("task type", "").strip().lower() != "length":
-        return False
-    br = row.get("bad record", "").strip().lower()
-    if br not in ("", "false"):
-        return False
-    if not row.get("right ground truth", "").strip():
-        return False
-    if not row.get("first_scale_value", "").strip():
-        return False
-    return True
-
-
 def main():
     os.makedirs(IMAGES_DIR, exist_ok=True)
 
-    # Read CSV rows
-    with open(RAW_CSV, newline="") as f:
-        reader = csv.DictReader(f)
-        rows = list(reader)
-        fieldnames = reader.fieldnames
+    # Read CSV using pandas and ensure necessary columns are strings.
+    df = pd.read_csv(RAW_CSV)
+    df["task type"] = df["task type"].fillna("").astype(str)
+    df["bad record"] = df["bad record"].fillna("").astype(str)
+    df["right ground truth"] = df["right ground truth"].fillna("").astype(str)
+    df["first_scale_value"] = df["first_scale_value"].fillna("").astype(str)
+    df["filename right"] = df["filename right"].fillna("").astype(str)
 
-    # Filter rows based on conditions
-    rows = [row for row in rows if filter_row(row)]
+    # Filter rows based on conditions.
+    mask = (
+        (df["task type"].str.strip().str.lower() == "length")
+        & (df["bad record"].str.strip().str.lower().isin(["", "false"]))
+        & (df["right ground truth"].str.strip() != "")
+        & (df["first_scale_value"].str.strip() != "")
+    )
+    df = df[mask].copy()
 
-    # Process rows: copy images and convert absolute paths to relative paths.
-    for row in rows:
-        for key in ["filename left", "filename right"]:
-            orig_path = row.get(key, "")
-            if orig_path and os.path.exists(orig_path):
-                base = os.path.basename(orig_path)
-                new_rel = os.path.join("images", base)
-                new_abs = os.path.join(IMAGES_DIR, base)
-                if not os.path.exists(new_abs):
-                    shutil.copy2(orig_path, new_abs)
-                row[key] = new_rel
-            else:
-                row[key] = ""
+    # Set left image references to empty.
+    df["filename left"] = ""
 
-    # Write new CSV file in HF dataset folder.
+    # Process right image: copy image if exists and update path.
+    def process_right_image(row):
+        orig_path = row["filename right"]
+        if orig_path and os.path.exists(orig_path):
+            base = os.path.basename(orig_path)
+            new_rel = os.path.join("images", base)
+            new_abs = os.path.join(IMAGES_DIR, base)
+            if not os.path.exists(new_abs):
+                shutil.copy2(orig_path, new_abs)
+            return new_rel
+        return ""
+
+    df["filename right"] = df.apply(process_right_image, axis=1)
+
+    # Write the new CSV file.
     new_csv = os.path.join(NEW_DATASET_DIR, "dataset.csv")
-    with open(new_csv, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
+    df.to_csv(new_csv, index=False)
 
-    # Create a minimal README with YAML metadata to address the warning.
+    # Create a minimal README with YAML metadata.
     readme = os.path.join(NEW_DATASET_DIR, "README.md")
     with open(readme, "w") as f:
         f.write(
@@ -85,14 +72,14 @@ Converted dataset from twitter_ai label tool.
 """
         )
 
-    # Create the dataset repository on Hugging Face (if it doesn't exist)
+    # Create the dataset repository on Hugging Face (if it doesn't exist).
     token = Config.HF_TOKEN
     try:
         create_repo("length_captchas", token=token, repo_type="dataset", exist_ok=True)
     except Exception as e:
         print("Repo creation may have been skipped:", e)
 
-    # Upload the dataset folder using the HTTP-based alternative.
+    # Upload the dataset folder.
     api = HfApi()
     api.upload_folder(
         folder_path=NEW_DATASET_DIR,
