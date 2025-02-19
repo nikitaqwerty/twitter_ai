@@ -18,13 +18,16 @@ IMAGES_DIR = os.path.join(NEW_DATASET_DIR, "images")
 def main():
     os.makedirs(IMAGES_DIR, exist_ok=True)
 
-    # Read CSV using pandas and ensure necessary columns are strings.
+    # Read CSV and fill missing values.
     df = pd.read_csv(RAW_CSV)
-    df["task type"] = df["task type"].fillna("").astype(str)
-    df["bad record"] = df["bad record"].fillna("").astype(str)
-    df["right ground truth"] = df["right ground truth"].fillna("").astype(str)
-    df["first_scale_value"] = df["first_scale_value"].fillna("").astype(str)
-    df["filename right"] = df["filename right"].fillna("").astype(str)
+    for col in [
+        "task type",
+        "bad record",
+        "right ground truth",
+        "first_scale_value",
+        "filename right",
+    ]:
+        df[col] = df[col].fillna("").astype(str)
 
     # Filter rows based on conditions.
     mask = (
@@ -35,35 +38,47 @@ def main():
     )
     df = df[mask].copy()
 
-    # Set left image references to empty.
-    df["filename left"] = ""
-
-    # Process right image: copy image if exists and update path.
-    def process_right_image(row):
-        orig_path = row["filename right"]
-        if orig_path and os.path.exists(orig_path):
-            base = os.path.basename(orig_path)
+    # Process the right image: copy image if exists and update relative path.
+    def process_image(path):
+        if path and os.path.exists(path):
+            base = os.path.basename(path)
             new_rel = os.path.join("images", base)
             new_abs = os.path.join(IMAGES_DIR, base)
             if not os.path.exists(new_abs):
-                shutil.copy2(orig_path, new_abs)
+                shutil.copy2(path, new_abs)
             return new_rel
         return ""
 
-    df["filename right"] = df.apply(process_right_image, axis=1)
+    # Create multimodal columns.
+    df["image"] = df["filename right"].apply(process_image)
+    df["image_id"] = df["image"].apply(lambda x: os.path.basename(x) if x else "")
+    df["caption"] = df["right ground truth"]
+
+    # Keep only the necessary columns.
+    df = df[["image", "image_id", "caption"]]
 
     # Write the new CSV file.
     new_csv = os.path.join(NEW_DATASET_DIR, "dataset.csv")
     df.to_csv(new_csv, index=False)
 
-    # Create a minimal README with YAML metadata.
+    # Create a README.md with YAML metadata to define multimodal features.
     readme = os.path.join(NEW_DATASET_DIR, "README.md")
     with open(readme, "w") as f:
         f.write(
             """---
-tags:
-  - captcha
-  - dataset
+dataset_info:
+  features:
+  - name: image
+    dtype: image
+  - name: image_id
+    dtype: string
+  - name: caption
+    dtype: string
+configs:
+- config_name: default
+  data_files:
+  - split: train
+    path: dataset.csv
 license: mit
 ---
 # Length Captchas Dataset
