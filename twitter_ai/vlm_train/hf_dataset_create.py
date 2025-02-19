@@ -59,10 +59,10 @@ def main():
     # Create multimodal columns.
     df["image"] = df["filename right"].apply(process_image)
     df["image_id"] = df["image"].apply(lambda x: os.path.basename(x) if x else "")
-    df["caption"] = df["right ground truth"]
+    df["ground_truth"] = df["right ground truth"]
 
     # Keep only the necessary columns.
-    df = df[["image", "image_id", "caption"]]
+    df = df[["image", "image_id", "ground_truth", "first_scale_value"]]
 
     # Write the new CSV file.
     new_csv = os.path.join(NEW_DATASET_DIR, "dataset.csv")
@@ -79,7 +79,9 @@ dataset_info:
     dtype: image
   - name: image_id
     dtype: string
-  - name: caption
+  - name: ground_truth
+    dtype: string
+  - name: first_scale_value
     dtype: string
 configs:
 - config_name: default
