@@ -2,8 +2,7 @@ from datasets import load_dataset
 
 dataset = load_dataset("nikita-nrg/length_captchas", split="train")
 
-instruction = """
-The image shows a simple measuring scale with numerical markings. An object's edge is aligned with one of these marks.
+instruction = """The image shows a simple measuring scale with numerical markings. An object's edge is aligned with one of these marks.
 Your task is to identify the numerical value on the scale where the object ends and output that measured length as a number (using the same units as on the scale).
 Provide the measurement as a rounded integer.
 """
