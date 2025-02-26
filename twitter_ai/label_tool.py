@@ -83,6 +83,9 @@ def get_stats(task_type):
                     and r.get("first_scale_value", "").strip()
                 ):
                     labeled += 1
+            elif task == "seats":
+                if r.get("right ground truth", "").strip():
+                    labeled += 1
             else:
                 if (
                     r.get("left ground truth", "").strip()
@@ -131,22 +134,31 @@ def index():
             idx = len(display_records) - 1
 
         record = display_records[idx]
-        record["left ground truth"] = request.form.get("left_ground_truth", "")
-        record["right ground truth"] = request.form.get("right_ground_truth", "")
         record["task type"] = request.form.get("task_type", "")
+        task = record["task type"].strip().lower()
+        if task == "seats":
+            # For seats task type, only use one ground truth via radio buttons.
+            record["right ground truth"] = request.form.get("ground_truth", "")
+        elif task == "length":
+            record["left ground truth"] = request.form.get("left_ground_truth", "")
+            record["right ground truth"] = request.form.get("right_ground_truth", "")
+            record["first_scale_value"] = request.form.get("first_scale_value", "")
+        else:
+            record["left ground truth"] = request.form.get("left_ground_truth", "")
+            record["right ground truth"] = request.form.get("right_ground_truth", "")
         record["bad record"] = (
             "True" if request.form.get("bad_record") == "on" else "False"
         )
-
-        # Update first_scale_value if task type is 'length'
-        if record["task type"].strip().lower() == "length":
-            record["first_scale_value"] = request.form.get("first_scale_value", "")
 
         # Propagate ground truth updates to all records with the same filenames.
         left_filename = record.get("filename left", "")
         right_filename = record.get("filename right", "")
         for r in records:
-            if left_filename and r.get("filename left", "") == left_filename:
+            if (
+                task != "seats"
+                and left_filename
+                and r.get("filename left", "") == left_filename
+            ):
                 r["left ground truth"] = record["left ground truth"]
             if right_filename and r.get("filename right", "") == right_filename:
                 r["right ground truth"] = record["right ground truth"]
@@ -156,7 +168,7 @@ def index():
         for r in records:
             if r.get("run timestamp", "") == timestamp:
                 r["task type"] = record["task type"]
-                if record["task type"].strip().lower() == "length":
+                if task == "length":
                     r["first_scale_value"] = record.get("first_scale_value", "")
 
         if action == "prev":
@@ -269,6 +281,23 @@ def index():
           </div>
         </div>
         <p>
+          <label>Task type:</label>
+          <input type="text" name="task_type" value="{{ record['task type'] }}">
+        </p>
+        {% if record['task type']|lower == 'seats' %}
+        <p>
+          <label>Ground truth:</label>
+          <label>
+            <input type="radio" name="ground_truth" value="yes" {% if record['right ground truth']|lower == 'yes' %}checked{% endif %}>
+            Yes
+          </label>
+          <label>
+            <input type="radio" name="ground_truth" value="no" {% if record['right ground truth']|lower == 'no' %}checked{% endif %}>
+            No
+          </label>
+        </p>
+        {% else %}
+        <p>
           <label>left ground truth:</label>
           <input type="text" name="left_ground_truth" value="{{ record['left ground truth'] or record['vlm output extracted number left'] }}">
         </p>
@@ -276,10 +305,7 @@ def index():
           <label>right ground truth:</label>
           <input type="text" name="right_ground_truth" value="{{ record['right ground truth'] }}">
         </p>
-        <p>
-          <label>Task type:</label>
-          <input type="text" name="task_type" value="{{ record['task type'] }}">
-        </p>
+        {% endif %}
         {% if record['task type']|lower == 'length' %}
         <p>
           <label>First scale value:</label>
